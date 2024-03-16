@@ -1,0 +1,12 @@
+[package]
+name = "samn-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+heapless = {version = "0.7", features = ["serde"]}
+serde = {version = "1.0.197", default-features = false}
+postcard = "1.0.8"
+cc1101 = {path = "../cc1101"}
+embedded-hal = "1"
+embedded-nrf24l01 = {path = "../embedded-nrf24l01"}
