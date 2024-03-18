@@ -2,10 +2,10 @@ use core::fmt::Debug;
 
 use embedded_hal::digital::OutputPin;
 use embedded_hal::spi::SpiDevice;
-use embedded_nrf24l01::{Configuration, CrcMode, DataRate, StandbyMode, NRF24L01};
+use embedded_nrf24l01::{CrcMode, DataRate, NRF24L01};
 
 pub fn init<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug>(
-    nrf24: &mut StandbyMode<NRF24L01<E, CE, SPI>>,
+    nrf24: &mut NRF24L01<E, CE, SPI>,
 ) {
     nrf24.set_frequency(8).unwrap();
     nrf24.set_auto_retransmit(15, 15).unwrap();
