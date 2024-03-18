@@ -8,25 +8,35 @@ pub enum Sensor {
   },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize,Debug)]
 pub enum Command {
   Info,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct NodeInfo {
-  pub id: u16,
-  pub board_version: u8,
+#[derive(Serialize, Deserialize,Debug)]
+pub enum Response {
+  Info{board_version: u8}
 }
 
 pub const SENSORS_MAX:usize = 4;
 
-#[derive(Serialize, Deserialize)]
+
+#[derive(Serialize, Deserialize,Debug)]
 pub enum MessageData {
-  Command(Command),
-  SensorData(Vec<Sensor, SENSORS_MAX>),
-  NodeInfo(NodeInfo)
+  Command{
+    id: u8,
+    command: Command
+  },
+  Response{
+    id: u8,
+    response: Response
+  },
+  SensorData{
+    id: u16,
+    data: Vec<Sensor, SENSORS_MAX>
+  }
 }
+
 
 // #[derive(Serialize, Deserialize)]
 // pub struct Message {
