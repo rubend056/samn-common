@@ -19,10 +19,12 @@ pub struct NodeInfo {
   pub board_version: u8,
 }
 
+pub const SENSORS_MAX:usize = 4;
+
 #[derive(Serialize, Deserialize)]
 pub enum MessageData {
   Command(Command),
-  SensorData(Vec<Sensor, 4>),
+  SensorData(Vec<Sensor, SENSORS_MAX>),
   NodeInfo(NodeInfo)
 }
 
