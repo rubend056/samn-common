@@ -28,7 +28,8 @@ pub enum MessageData {
     command: Command
   },
   Response{
-    id: u8,
+    id: u16,
+    id_c: u8,
     response: Response
   },
   SensorData{
