@@ -11,3 +11,8 @@ cc1101 = {path = "../cc1101"}
 embedded-hal = "1"
 embedded-nrf24l01 = {path = "../embedded-nrf24l01"}
 nb = "1.1.0"
+sonnerie = {version = "0.8.6", optional = true}
+
+[features]
+std = []
+sonnerie = ["dep:sonnerie", "std"]

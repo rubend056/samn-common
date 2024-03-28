@@ -1,5 +1,9 @@
+use core::ops;
+use std::io::Write;
+
 use heapless::{String, Vec};
 use serde::{Deserialize, Serialize};
+
 
 #[derive(Serialize, Deserialize,Clone,Debug)]
 pub enum Board {
@@ -73,22 +77,24 @@ pub enum Response {
 #[derive(Serialize, Deserialize,Debug)]
 pub enum MessageData {
   Command{
+    /// What command id is this
     id: u8,
     command: Command
   },
   Response{
-    /// Which command id are we responding
+    /// Which command id are we responding to
     id: Option<u8>,
     response: Response
   },
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Message {
-  /// From/for id
+  /// From/for node id
   pub id: u16,
   pub data: MessageData
 }
+
 
 
