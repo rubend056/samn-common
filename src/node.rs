@@ -1,7 +1,14 @@
 use heapless::{String, Vec};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize,Clone,Debug)]
+pub enum Board {
+  /// For all samn boards <= 8
+  SamnV8,
+  SamnV9
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Sensor {
   /// Battery level (in percentage 0-100)
   /// 
@@ -10,50 +17,56 @@ pub enum Sensor {
   /// The reading from ADC would be from ~300 to ~500, so `(adc - 300) / 2` would yield the percentage
   Battery(u8),
   /// Tempearature in farenheit
-  Temperature(u16),
+  Temperature(u8),
   /// Humidity in percentage
   Humidity(u8)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ActuatorValue {
+pub enum Actuator {
   /// An on/off light
   Light(bool),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Actuator {
-  /// Id, because there can actuators of the same kind
-  pub id: u8,
-  /// Value
-  pub value: ActuatorValue,
-}
-impl PartialEq for Actuator{
-  fn eq(&self, other: &Self) -> bool {
-      self.id == other.id
-  }
-}
-impl Eq for Actuator {}
+pub enum LimbType{Sensor{
+  /// The reporting interval (in seconds)
+  /// We will report on the closest value after wakeup.
+  report_interval: u16,
+  data: Option<Sensor> 
+}, Actuator(Actuator)}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Limb(pub u16,pub LimbType);
 
 #[derive(Serialize, Deserialize,Debug)]
 pub enum Command {
+  /// Gets node Info
   Info,
-  /// Set sensor reporting interval in ms
-  ReportingInterval(u16),
-  /// Set actuator
-  SetActuator(Actuator)
+  /// Get node Limb states
+  Limbs,
+  /// Set a limb
+  SetLimb(Limb)
 }
 
+#[derive(Serialize, Deserialize, Clone,Debug)]
+pub struct NodeInfo {
+  pub name: String::<12>,
+  pub board: Board
+}
+
+pub const LIMBS_MAX:usize = 4;
+pub type Limbs = Vec<Limb, LIMBS_MAX>;
+
+#[repr(u8)]
 #[derive(Serialize, Deserialize,Debug, Default)]
 pub enum Response {
-  Info{board_version: u8, actuators: Vec<Actuator, ACTUATORS_MAX>},
   #[default] Ok,
-  ErrActuatorNotFound,
-  ErrActuatorValueTypeDoesntMatch
+  Info(NodeInfo),
+  Limbs(Limbs),
+  ErrLimbNotFound=200,
+  ErrLimbTypeDoesntMatch
 }
-
-pub const ACTUATORS_MAX:usize = 4;
-pub const SENSORS_MAX:usize = 4;
 
 
 #[derive(Serialize, Deserialize,Debug)]
@@ -63,21 +76,18 @@ pub enum MessageData {
     command: Command
   },
   Response{
-    id: u16,
-    id_c: u8,
+    /// Which command id are we responding
+    id: Option<u8>,
     response: Response
   },
-  SensorData{
-    id: u16,
-    data: Vec<Sensor, SENSORS_MAX>
-  }
 }
 
 
-// #[derive(Serialize, Deserialize)]
-// pub struct Message {
-//   for_id: u16,
-//   message: MessageData
-// }
+#[derive(Serialize, Deserialize)]
+pub struct Message {
+  /// From/for id
+  pub id: u16,
+  pub data: MessageData
+}
 
 
