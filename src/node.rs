@@ -64,6 +64,7 @@ pub enum Response {
   #[default] Ok,
   Info(NodeInfo),
   Limbs(Limbs),
+  Heartbeat(u32),
   ErrLimbNotFound=200,
   ErrLimbTypeDoesntMatch
 }
