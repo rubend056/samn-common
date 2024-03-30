@@ -9,7 +9,7 @@ pub fn init<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>
 ) {
     nrf24.set_frequency(8).unwrap();
     nrf24.set_auto_retransmit(15, 15).unwrap();
-    nrf24.set_rf(&DataRate::R2Mbps, 0).unwrap();
+    nrf24.set_rf(&DataRate::R250Kbps, 3).unwrap();
     nrf24
         .set_pipes_rx_enable(&[true, false, false, false, false, false])
         .unwrap();
