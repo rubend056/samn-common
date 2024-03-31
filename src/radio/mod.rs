@@ -1,12 +1,11 @@
 /// Provides a trait for Radios to implement, so that we only use 1 API
 
+mod radios;
 
 pub trait Radio<E> {
-  fn transmit(payload:&Payload) -> Result<(), E>;
-  fn receive(&mut self) -> nb::Result<Payload, E>;
+  fn transmit_(&mut self, payload:&Payload) -> Result<Option<bool>, E>;
+  fn receive_<P: embedded_hal::digital::InputPin>(&mut self, packet_ready_pin: &mut P) -> nb::Result<Payload, E>;
 }
-
-impl Radio for 
 
 
 
