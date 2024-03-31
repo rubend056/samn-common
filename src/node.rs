@@ -17,10 +17,9 @@ pub enum Sensor {
   /// being read by a microcontroller ADC of 10bits with a 3.3v power supply
   /// The reading from ADC would be from ~300 to ~500, so `(adc - 300) / 2` would yield the percentage
   Battery(u8),
-  /// Tempearature in farenheit
-  Temperature(u8),
-  /// Humidity in percentage
-  Humidity(u8)
+  /// - Temperature in Celcius * 100
+  /// - Humidity in percentage
+  TempHum((i16, u8)),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
