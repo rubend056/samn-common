@@ -136,9 +136,26 @@ pub enum MessageData {
 	},
 }
 
+/// A message handles data transport between application layer
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Message {
-	/// From/for node id
-	pub id: u16,
-	pub data: MessageData,
+pub enum Message {
+	// A message
+	Message(MessageData),
+
+	/// Relay a message to this node_id
+	RelayMessage(u32, MessageData),
+
+	/// A node searching a network for itself
+	/// 
+	/// (node_id)
+	SearchingNetwork(u32),
+	/// A relay searching a network for this specific node
+	/// 
+	/// (relay_id, node_id)
+	RelaySearchingNetwork(u32, u32),
+
+	/// An id has been given to this node 
+	/// 
+	/// (node_id, node_addr)
+	Network(u32, u16)
 }

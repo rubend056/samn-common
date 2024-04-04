@@ -3,7 +3,13 @@ mod radios;
 
 pub trait Radio<E> {
 	fn transmit_(&mut self, payload: &Payload) -> Result<Option<bool>, E>;
-	fn receive_<P: embedded_hal::digital::InputPin>(&mut self, packet_ready_pin: &mut P) -> nb::Result<Payload, E>;
+	/// Implemented on nrf24 + cc1101
+	/// 
+	/// Doesn't check rx_addresses on nrf24 because nrf24 can check the full address on hardware
+	fn receive_<P: embedded_hal::digital::InputPin>(&mut self, packet_ready_pin: &mut P, rx_addresses: Option<&[u16]>) -> nb::Result<Payload, E>;
+	/// For the nrf24 this will set the 6 data pipe addresses ()
+	/// For the cc1101 this will set the 1 address filter (to the least significant byte on the first address)
+	fn set_rx_filter(&mut self, rx_addresses: &[u16]) -> Result<(), E>;
 }
 
 #[derive(Default)]
@@ -36,11 +42,23 @@ impl Payload {
 		}
 		s
 	}
+	
+	fn has_address(&self) -> bool {
+		(self.0[0] & (1 << 7)) > 0
+	}
 	pub fn address(&self) -> Option<u16> {
-		if (self.0[0] & (1 << 7)) > 0 {
+		if self.has_address() {
 			Some(u16::from_le_bytes(self.0[1..3].try_into().unwrap()))
 		} else {
 			None
+		}
+	}
+	
+	fn header_length(&self) -> usize {
+		if self.has_address() {
+			3
+		} else {
+			1
 		}
 	}
 	/// Get the length of the packet
@@ -49,7 +67,7 @@ impl Payload {
 	}
 	/// Get the data section of the packet
 	pub fn data(&self) -> &[u8] {
-		let header_length = if self.address().is_some() { 3 } else { 1 } as usize;
+		let header_length = self.header_length();
 		&self.0[header_length..header_length + self.len()]
 	}
 }
