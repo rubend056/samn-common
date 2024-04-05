@@ -52,8 +52,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 				} else {
 					nb::Result::Err(nb::Error::WouldBlock)
 				}
-			} else 
-			{
+			} else {
 				nb::Result::Ok(payload)
 			}
 		})
@@ -63,7 +62,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 			if i > 5 {
 				return Ok(());
 			}
-			
+
 			if i < 2 {
 				// For pipe numbers 0 and 1 we have 5 bytes to work with
 				let mut addr = [DEFAULT_PIPE; 5];

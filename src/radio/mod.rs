@@ -94,3 +94,18 @@ impl Payload {
 		&self.0[header_length..header_length + self.len()]
 	}
 }
+
+
+
+mod test {
+    use super::Payload;
+
+	#[test]
+	fn try_payload() {
+		let payload = Payload::new_with_addr(&[1,2,3], 0x5555, 0x22);
+		assert_eq!(payload.data(), [1,2,3]);
+		assert_eq!(payload.len(), 3);
+		assert_eq!(payload.pipe(), 0x22);
+		assert_eq!(payload.address(), Some(0x5555));
+	}
+}
