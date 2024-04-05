@@ -89,7 +89,7 @@ impl core::ops::Add for LimbType {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Limb(pub u16, pub LimbType);
+pub struct Limb(pub LimbId, pub LimbType);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Command {
@@ -136,6 +136,10 @@ pub enum MessageData {
 	},
 }
 
+pub type NodeId = u32;
+pub type NodeAddress = u16;
+pub type LimbId = u8;
+
 /// A message handles data transport between application layer
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
@@ -143,19 +147,20 @@ pub enum Message {
 	Message(MessageData),
 
 	/// Relay a message to this node_id
-	RelayMessage(u32, MessageData),
+	RelayMessage(NodeId, MessageData),
 
 	/// A node searching a network for itself
 	/// 
 	/// (node_id)
-	SearchingNetwork(u32),
-	/// A relay searching a network for this specific node
-	/// 
-	/// (relay_id, node_id)
-	RelaySearchingNetwork(u32, u32),
+	SearchingNetwork(NodeId),
 
 	/// An id has been given to this node 
 	/// 
 	/// (node_id, node_addr)
-	Network(u32, u16)
+	Network(NodeId, NodeAddress),
+
+	// /// A relay searching a network for this specific node
+	// /// 
+	// /// (relay_id, node_id)
+	// RelaySearchingNetwork(NodeId, NodeId),
 }
