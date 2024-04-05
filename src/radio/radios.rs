@@ -1,3 +1,5 @@
+use crate::radio::DEFAULT_PIPE;
+
 use super::{Payload, Radio};
 use cc1101::Cc1101;
 use core::fmt::Debug;
@@ -16,28 +18,17 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	///
 	/// Now it sets the tx address to the payload's if it has one
 	fn transmit_(&mut self, payload: &Payload) -> Result<Option<bool>, nrf24::Error<SPIE>> {
-		static mut LAST_ADDR: Option<u16> = None;
-		if let Some(address) = payload.address() {
-			if unsafe { LAST_ADDR }.map(|last| last != address).unwrap_or(true) {
-				// Set the tx address
-				let mut bytes = [0xe7u8; 5];
-				let addr_bytes = address.to_be_bytes();
-				bytes[3] = addr_bytes[0];
-				bytes[4] = addr_bytes[1];
-				self.set_tx_addr(&bytes).unwrap();
-				unsafe {
-					LAST_ADDR = Some(address);
-				}
+		static mut LAST_PIPE: u8 = 0;
+		let pipe = payload.pipe();
+		if unsafe { LAST_PIPE } != pipe {
+			// Set the tx address
+			let mut bytes = [DEFAULT_PIPE; 5];
+			bytes[4] = pipe;
+			self.set_tx_addr(&bytes).unwrap();
+			unsafe {
+				LAST_PIPE = pipe;
 			}
 		}
-		// if let Some(address) = payload.address() {
-		// 	let mut bytes = [0xe7u8; 5];
-		// 	let addr_bytes = address.to_be_bytes();
-		// 	bytes[3] = addr_bytes[0];
-		// 	bytes[4] = addr_bytes[1];
-		// 	self.set_tx_addr(&bytes).unwrap();
-		// }
-
 		Ok(Some(self.send(&payload.0)?))
 	}
 
@@ -67,21 +58,20 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 			}
 		})
 	}
-	fn set_rx_filter(&mut self, rx_addresses: &[u16]) -> Result<(), nrf24::Error<SPIE>> {
-		for (i, address) in rx_addresses.iter().enumerate() {
+	fn set_rx_filter(&mut self, rx_pipes: &[u8]) -> Result<(), nrf24::Error<SPIE>> {
+		for (i, address) in rx_pipes.iter().enumerate() {
 			if i > 5 {
 				return Ok(());
 			}
+			
 			if i < 2 {
 				// For pipe numbers 0 and 1 we have 5 bytes to work with
-				let mut addr = [0xe7u8; 5];
-				let address_bytes = address.to_be_bytes();
-				addr[3] = address_bytes[0];
-				addr[4] = address_bytes[1];
+				let mut addr = [DEFAULT_PIPE; 5];
+				addr[4] = *address;
 				self.set_rx_addr(i, &addr)?;
 			} else {
 				// For pipes 2,3,4,5 only set the least siginificant byte
-				self.set_rx_addr(i, &address.to_le_bytes()[0..1])?;
+				self.set_rx_addr(i, &[*address])?;
 			}
 		}
 		Ok(())
@@ -116,10 +106,10 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 			}
 		})
 	}
-	fn set_rx_filter(&mut self, rx_addresses: &[u16]) -> Result<(), cc1101::Error<SpiE>> {
-		if rx_addresses.len() > 0 {
+	fn set_rx_filter(&mut self, rx_pipes: &[u8]) -> Result<(), cc1101::Error<SpiE>> {
+		if rx_pipes.len() > 0 {
 			// Only set least significant byte
-			self.set_address_filter(cc1101::AddressFilter::Device(rx_addresses[0].to_le_bytes()[0]))?;
+			self.set_address_filter(cc1101::AddressFilter::Device(rx_pipes[0]))?;
 		}
 		Ok(())
 	}
