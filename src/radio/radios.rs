@@ -39,12 +39,15 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	}
 
 	/// Receive with irq should work well (fast) :)
+	/// 
+	/// Had to turn off irq, because pin would go low on first packet read
+	/// Leaving other packets in the FIFO unread
 	fn receive<P: embedded_hal::digital::InputPin>(
 		&mut self,
-		packet_ready_pin: &mut P,
+		irq: &mut P,
 		rx_addresses: Option<&[u16]>,
 	) -> nb::Result<Payload, nrf24::Error<SPIE>> {
-		NRF24L01::receive_with_irq(self, packet_ready_pin).and_then(|mut buf| {
+		self.receive_with_irq(irq).and_then(|mut buf| {
 			// Make buffer 32 items long
 			while buf.len() < 32 {
 				buf.push(0u8).unwrap();
@@ -136,5 +139,5 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	}
 	fn to_idle(&mut self)-> Result<(), cc1101::Error<SpiE>> {
 		self.to_idle()
-	}	
+	}
 }
