@@ -103,11 +103,13 @@ pub enum Command {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NodeInfo {
-	pub name: String<12>,
+	pub name: String<8>,
 	pub board: Board,
+	/// Heartbeat interval in seconds
+	pub heartbeat_interval: u16,
 }
 
-pub const LIMBS_MAX: usize = 4;
+pub const LIMBS_MAX: usize = 3;
 pub type Limbs = Vec<Limb, LIMBS_MAX>;
 
 #[repr(u8)]

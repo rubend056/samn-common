@@ -11,21 +11,25 @@ pub fn addr_to_rx_pipe(addr:u16) -> u8 {
 }
 /// - Used by node to send a message to HQ
 pub fn addr_to_nrf24_hq_pipe(addr:u16) -> u8 {
-	DEFAULT_PIPE + ((addr % 6) as u8)
+	// Because nrf24 on HQ not working with multiple pipes :(
+	DEFAULT_PIPE
 }
 pub fn addr_to_cc1101_hq_pipe(_:u16) -> u8 {
 	DEFAULT_PIPE
 }
 
 pub trait Radio<E> {
-	fn transmit_(&mut self, payload: &Payload) -> Result<Option<bool>, E>;
+	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, E>;
 	/// Implemented on nrf24 + cc1101
 	/// 
 	/// Doesn't check rx_addresses on nrf24 because nrf24 can check the full address on hardware
-	fn receive_<P: embedded_hal::digital::InputPin>(&mut self, packet_ready_pin: &mut P, rx_addresses: Option<&[u16]>) -> nb::Result<Payload, E>;
+	fn receive<P: embedded_hal::digital::InputPin>(&mut self, packet_ready_pin: &mut P, rx_addresses: Option<&[u16]>) -> nb::Result<Payload, E>;
 	/// For the nrf24 this will set the 6 data pipe addresses ()
 	/// For the cc1101 this will set the 1 address filter (to the least significant byte on the first address)
 	fn set_rx_filter(&mut self, rx_pipes: &[u8]) -> Result<(), E>;
+	fn to_rx(&mut self)-> Result<(), E>;
+	fn to_tx(&mut self)-> Result<(), E>;
+	fn to_idle(&mut self)-> Result<(), E>;
 }
 
 /// Payload is (len, pipe, addr1, addr0, ...data)

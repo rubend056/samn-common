@@ -4,7 +4,7 @@ use super::{Payload, Radio};
 use cc1101::Cc1101;
 use core::fmt::Debug;
 use embedded_hal::{digital::OutputPin, spi::SpiDevice};
-use nrf24::NRF24L01;
+use nrf24::{Device, NRF24L01};
 
 impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> Radio<nrf24::Error<SPIE>>
 	for NRF24L01<E, CE, SPI>
@@ -17,7 +17,9 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// DONE! Have to test. WORKS!
 	///
 	/// Now it sets the tx address to the payload's if it has one
-	fn transmit_(&mut self, payload: &Payload) -> Result<Option<bool>, nrf24::Error<SPIE>> {
+	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, nrf24::Error<SPIE>> {
+		// Removing because of stack oveflow on mega328, maybe fixed now :)
+
 		static mut LAST_PIPE: u8 = 0;
 		let pipe = payload.pipe();
 		if unsafe { LAST_PIPE } != pipe {
@@ -29,11 +31,15 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 				LAST_PIPE = pipe;
 			}
 		}
+		// let mut bytes = [DEFAULT_PIPE; 5];
+		// bytes[4] = payload.pipe();
+		// self.set_tx_addr(&bytes).unwrap();
+		
 		Ok(Some(self.send(&payload.0)?))
 	}
 
 	/// Receive with irq should work well (fast) :)
-	fn receive_<P: embedded_hal::digital::InputPin>(
+	fn receive<P: embedded_hal::digital::InputPin>(
 		&mut self,
 		packet_ready_pin: &mut P,
 		rx_addresses: Option<&[u16]>,
@@ -75,17 +81,27 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		}
 		Ok(())
 	}
+	fn to_tx(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+		self.tx()
+	}
+	fn to_rx(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+		self.rx()
+	}
+	fn to_idle(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+		self.ce_disable();
+		Ok(())
+	}
 }
 
 impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc1101<SPI> {
 	/// Transmit should work well (fast), because there are no retrasmissions/acks
 	/// This just sends the packet as is
-	fn transmit_(&mut self, payload: &Payload) -> Result<Option<bool>, cc1101::Error<SpiE>> {
+	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, cc1101::Error<SpiE>> {
 		self.transmit(&payload.0)?;
 		Ok(None)
 	}
 	/// Receive with irq should work well (fast) :)
-	fn receive_<P: embedded_hal::digital::InputPin>(
+	fn receive<P: embedded_hal::digital::InputPin>(
 		&mut self,
 		packet_ready_pin: &mut P,
 		rx_addresses: Option<&[u16]>,
@@ -112,4 +128,13 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 		}
 		Ok(())
 	}
+	fn to_tx(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+		self.to_tx()
+	}
+	fn to_rx(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+		self.to_rx()
+	}
+	fn to_idle(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+		self.to_idle()
+	}	
 }
