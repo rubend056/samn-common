@@ -16,9 +16,13 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// That gives us around 10ms transmission time, instead of 4ms*15= around 100ms transmission time on max settings.
 	/// DONE! Have to test. WORKS!
 	///
+	/// There could be a power issue with polling too hard on the radio...
+	/// 
 	/// Now it sets the tx address to the payload's if it has one
 	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, nrf24::Error<SPIE>> {
+		self.to_idle().unwrap();
 		// Removing because of stack oveflow on mega328, maybe fixed now :)
+		// it was never a stack overflow, it was a watchdog reset
 
 		static mut LAST_PIPE: u8 = 0;
 		let pipe = payload.pipe();
@@ -47,7 +51,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		irq: &mut P,
 		rx_addresses: Option<&[u16]>,
 	) -> nb::Result<Payload, nrf24::Error<SPIE>> {
-		self.receive_with_irq(irq).and_then(|mut buf| {
+		self.receive().and_then(|mut buf| {
 			// Make buffer 32 items long
 			while buf.len() < 32 {
 				buf.push(0u8).unwrap();
