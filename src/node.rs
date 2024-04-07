@@ -1,4 +1,3 @@
-use heapless::{String, Vec};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -103,14 +102,13 @@ pub enum Command {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NodeInfo {
-	pub name: String<8>,
 	pub board: Board,
 	/// Heartbeat interval in seconds
 	pub heartbeat_interval: u16,
 }
 
 pub const LIMBS_MAX: usize = 3;
-pub type Limbs = Vec<Limb, LIMBS_MAX>;
+pub type Limbs = [Option<Limb>;LIMBS_MAX];
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize, Debug, Default)]
