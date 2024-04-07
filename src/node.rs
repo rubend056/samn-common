@@ -90,7 +90,7 @@ impl core::ops::Add for LimbType {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Limb(pub LimbId, pub LimbType);
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Command {
 	/// Gets node Info
 	Info,
@@ -111,7 +111,7 @@ pub const LIMBS_MAX: usize = 3;
 pub type Limbs = [Option<Limb>;LIMBS_MAX];
 
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub enum Response {
 	#[default]
 	Ok,
@@ -122,7 +122,7 @@ pub enum Response {
 	ErrLimbTypeDoesntMatch,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum MessageData {
 	Command {
 		/// What command id is this
@@ -141,7 +141,7 @@ pub type NodeAddress = u16;
 pub type LimbId = u8;
 
 /// A message handles data transport between application layer
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug,Clone)]
 pub enum Message {
 	// A message
 	Message(MessageData),
