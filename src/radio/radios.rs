@@ -143,7 +143,7 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	}
 	fn set_rx_filter(&mut self, rx_pipes: &[u8]) -> Result<(), cc1101::Error<SpiE>> {
 		if rx_pipes.len() > 0 {
-			// Only set least significant byte
+			// Only set first byte
 			self.set_address_filter(cc1101::AddressFilter::Device(rx_pipes[0]))?;
 		}
 		Ok(())
