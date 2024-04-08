@@ -38,7 +38,7 @@ pub trait Radio<E> {
 #[derive(Default)]
 pub struct Payload([u8; 32]);
 impl Payload {
-	/// Copies the data to the payload appending the length as the first byte
+	// /// Copies the data to the payload appending the length as the first byte
 	// pub fn new(data: &[u8]) -> Self {
 	// 	let mut s = Self::default();
 	// 	if data.len() > s.0.len() - 2 {
@@ -51,14 +51,16 @@ impl Payload {
 	// 	}
 	// 	s
 	// }
-	/// Copies the data to the payload appending the length as the first byte, and address as 2nd and 3rd bytes
+
+	/// Copies the data to the payload appending the pipe as 1rst byte, 
+	/// length as 2nd byte, address as 3rd and 4th bytes.
 	pub fn new_with_addr(data: &[u8], address: u16, pipe:u8) -> Self {
 		let mut s = Self::default();
 		if data.len() > s.0.len() - 4 {
 			panic!("Data too big for Payload");
 		}
-		s.0[0] = u8::try_from(data.len()).unwrap() | (1 << 7);
-		s.0[1] = pipe;
+		s.0[0] = pipe;
+		s.0[1] = u8::try_from(data.len()).unwrap() | (1 << 7);
 		let address_bytes = address.to_le_bytes();
 		s.0[2] = address_bytes[0];
 		s.0[3] = address_bytes[1];
@@ -69,7 +71,7 @@ impl Payload {
 	}
 	
 	fn has_address(&self) -> bool {
-		(self.0[0] & (1 << 7)) > 0
+		(self.0[1] & (1 << 7)) > 0
 	}
 	pub fn address(&self) -> Option<u16> {
 		if self.has_address() {
@@ -88,11 +90,11 @@ impl Payload {
 	}
 	/// Get the length of the packet
 	pub fn len(&self) -> usize {
-		(self.0[0] & !(1 << 7)).into()
+		(self.0[1] & !(1 << 7)).into()
 	}
 	/// Get the pipe
 	pub fn pipe(&self) -> u8 {
-		self.0[1]
+		self.0[0]
 	}
 	/// Get the data section of the packet
 	pub fn data(&self) -> &[u8] {
