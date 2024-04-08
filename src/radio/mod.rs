@@ -19,6 +19,8 @@ pub fn addr_to_cc1101_hq_pipe(_:u16) -> u8 {
 }
 
 pub trait Radio<E> {
+	/// Resets the device (if possible) and configures with default settings
+	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), E>;
 	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, E>;
 	/// Implemented on nrf24 + cc1101
 	/// 

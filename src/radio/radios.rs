@@ -9,6 +9,9 @@ use nrf24::{Device, NRF24L01};
 impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> Radio<nrf24::Error<SPIE>>
 	for NRF24L01<E, CE, SPI>
 {
+	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), nrf24::Error<SPIE>> {
+		self.configure()
+	}
 	/// Send still waits for retransmissions to finish :(
 	/// Maybe we can do a send that doesn't wait? no, for that
 	/// we'd have to switch off acks + retransmissions.
@@ -17,7 +20,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// DONE! Have to test. WORKS!
 	///
 	/// There could be a power issue with polling too hard on the radio...
-	/// 
+	///
 	/// Now it sets the tx address to the payload's if it has one
 	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, nrf24::Error<SPIE>> {
 		// We have to go to idle by disabling ce, otherwise radio won't switch
@@ -39,12 +42,12 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		// let mut bytes = [DEFAULT_PIPE; 5];
 		// bytes[4] = payload.pipe();
 		// self.set_tx_addr(&bytes).unwrap();
-		
+
 		Ok(Some(self.send(&payload.0)?))
 	}
 
 	/// Receive with irq should work well (fast) :)
-	/// 
+	///
 	/// Had to turn off irq, because pin would go low on first packet read
 	/// Leaving other packets in the FIFO unread
 	fn receive<P: embedded_hal::digital::InputPin>(
@@ -89,19 +92,28 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		}
 		Ok(())
 	}
-	fn to_tx(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+	fn to_tx(&mut self) -> Result<(), nrf24::Error<SPIE>> {
 		self.tx()
 	}
-	fn to_rx(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+	fn to_rx(&mut self) -> Result<(), nrf24::Error<SPIE>> {
 		self.rx()
 	}
-	fn to_idle(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+	fn to_idle(&mut self) -> Result<(), nrf24::Error<SPIE>> {
 		self.ce_disable();
 		Ok(())
 	}
 }
 
 impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc1101<SPI> {
+	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), cc1101::Error<SpiE>> {
+		delay.delay_ms(10);
+		self.reset()?;
+		delay.delay_ms(10);
+		self.configure();
+		self.flush_rx()?;
+		self.flush_tx()?;
+		Ok(())
+	}
 	/// Transmit should work well (fast), because there are no retrasmissions/acks
 	/// This just sends the packet as is
 	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, cc1101::Error<SpiE>> {
@@ -136,13 +148,13 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 		}
 		Ok(())
 	}
-	fn to_tx(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+	fn to_tx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.to_tx()
 	}
-	fn to_rx(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+	fn to_rx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.to_rx()
 	}
-	fn to_idle(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+	fn to_idle(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.to_idle()
 	}
 }
