@@ -9,7 +9,7 @@ use nrf24::{Device, NRF24L01};
 impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> Radio<nrf24::Error<SPIE>>
 	for NRF24L01<E, CE, SPI>
 {
-	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), nrf24::Error<SPIE>> {
+	fn init<D: embedded_hal::delay::DelayNs>(&mut self, _: &mut D) -> Result<(), nrf24::Error<SPIE>> {
 		self.configure()
 	}
 	/// Send still waits for retransmissions to finish :(
@@ -52,7 +52,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// Leaving other packets in the FIFO unread
 	fn receive<P: embedded_hal::digital::InputPin>(
 		&mut self,
-		irq: &mut P,
+		_: &mut P,
 		rx_addresses: Option<&[u16]>,
 	) -> nb::Result<Payload, nrf24::Error<SPIE>> {
 		self.receive().and_then(|mut buf| {

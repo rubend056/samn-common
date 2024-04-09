@@ -10,7 +10,7 @@ pub fn addr_to_rx_pipe(addr:u16) -> u8 {
 	((addr.wrapping_sub(128)) % 256) as u8
 }
 /// - Used by node to send a message to HQ
-pub fn addr_to_nrf24_hq_pipe(addr:u16) -> u8 {
+pub fn addr_to_nrf24_hq_pipe(_:u16) -> u8 {
 	// Because nrf24 on HQ not working with multiple pipes :(
 	DEFAULT_PIPE
 }
@@ -106,10 +106,12 @@ impl Payload {
 
 
 mod test {
-    use super::Payload;
+
 
 	#[test]
 	fn try_payload() {
+		use crate::radio::Payload;
+		
 		let payload = Payload::new_with_addr(&[1,2,3], 0x5555, 0x22);
 		assert_eq!(payload.data(), [1,2,3]);
 		assert_eq!(payload.len(), 3);
