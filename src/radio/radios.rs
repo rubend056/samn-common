@@ -66,10 +66,10 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// Leaving other packets in the FIFO unread
 	fn receive<P: embedded_hal::digital::InputPin>(
 		&mut self,
-		irq: &mut P,
+		_: &mut P,
 		rx_addresses: Option<&[u16]>,
 	) -> nb::Result<Payload, nrf24::Error<SPIE>> {
-		self.receive_with_irq(irq).and_then(|mut buf| {
+		self.receive().and_then(|mut buf| {
 			// Make buffer 32 items long
 			while buf.len() < 32 {
 				buf.push(0u8).unwrap();
