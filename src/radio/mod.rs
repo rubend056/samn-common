@@ -21,7 +21,12 @@ pub fn addr_to_cc1101_hq_pipe(_:u16) -> u8 {
 pub trait Radio<E> {
 	/// Resets the device (if possible) and configures with default settings
 	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), E>;
+	/// A blocking transmit, waits for tramission to finish.
 	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, E>;
+	/// A non-blocking transmission, puts packet in FIFO and puts radio in transmit mode.
+	fn transmit_start(&mut self,payload: &Payload)-> Result<(), E>;
+	/// Polls the trasmission. Returning when tranmission was done.
+	fn transmit_poll(&mut self) -> nb::Result<Option<bool>, E>;
 	/// Implemented on nrf24 + cc1101
 	/// 
 	/// Doesn't check rx_addresses on nrf24 because nrf24 can check the full address on hardware

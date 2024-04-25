@@ -28,22 +28,36 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		// Removing because of stack oveflow on mega328, maybe fixed now :)
 		// it was never a stack overflow, it was a watchdog reset
 
-		static mut LAST_PIPE: u8 = 0;
-		let pipe = payload.pipe();
-		if unsafe { LAST_PIPE } != pipe {
-			// Set the tx address
-			let mut bytes = [DEFAULT_PIPE; 5];
-			bytes[4] = pipe;
-			self.set_tx_addr(&bytes).unwrap();
-			unsafe {
-				LAST_PIPE = pipe;
-			}
-		}
-		// let mut bytes = [DEFAULT_PIPE; 5];
-		// bytes[4] = payload.pipe();
-		// self.set_tx_addr(&bytes).unwrap();
+		// static mut LAST_PIPE: u8 = 0;
+		// let pipe = payload.pipe();
+		// if unsafe { LAST_PIPE } != pipe {
+		// 	// Set the tx address
+		// 	let mut bytes = [DEFAULT_PIPE; 5];
+		// 	bytes[4] = pipe;
+		// 	self.set_tx_addr(&bytes).unwrap();
+		// 	unsafe {
+		// 		LAST_PIPE = pipe;
+		// 	}
+		// }
+		let mut bytes = [DEFAULT_PIPE; 5];
+		bytes[4] = payload.pipe();
+		self.set_tx_addr(&bytes).unwrap();
 
 		Ok(Some(self.send(&payload.0)?))
+	}
+	fn transmit_start(&mut self,payload: &Payload)-> Result<(), nrf24::Error<SPIE>> {
+		// We have to go to idle by disabling ce, otherwise radio won't switch
+		self.ce_disable();
+
+		let mut bytes = [DEFAULT_PIPE; 5];
+		bytes[4] = payload.pipe();
+		self.set_tx_addr(&bytes).unwrap();
+
+		self.send_start(&payload.0)?;
+		Ok(())
+	}
+	fn transmit_poll(&mut self) -> nb::Result<Option<bool>, nrf24::Error<SPIE>> {
+		self.poll_write().map(|v| Some(v))
 	}
 
 	/// Receive with irq should work well (fast) :)
@@ -119,6 +133,13 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, cc1101::Error<SpiE>> {
 		self.transmit(&payload.0)?;
 		Ok(None)
+	}
+	fn transmit_start(&mut self,payload: &Payload)-> Result<(), cc1101::Error<SpiE>> {
+		self.transmit_start(&payload.0)?;
+		Ok(())
+	}
+	fn transmit_poll(&mut self) -> nb::Result<Option<bool>, cc1101::Error<SpiE>> {
+		self.transmit_poll().map(|_| Some(true))
 	}
 	/// Receive with irq should work well (fast) :)
 	fn receive<P: embedded_hal::digital::InputPin>(
