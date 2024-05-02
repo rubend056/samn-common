@@ -56,20 +56,20 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		self.send_start(&payload.0)?;
 		Ok(())
 	}
-	fn transmit_poll(&mut self) -> nb::Result<Option<bool>, nrf24::Error<SPIE>> {
-		self.poll_write().map(|v| Some(v))
+	fn transmit_poll(&mut self) -> nb::Result<bool, nrf24::Error<SPIE>> {
+		self.poll_write()
 	}
 
 	/// Receive with irq should work well (fast) :)
 	///
 	/// Had to turn off irq, because pin would go low on first packet read
-	/// Leaving other packets in the FIFO unread
+	/// Leaving other packets in the FIFO unread. This should be fixed now...
 	fn receive<P: embedded_hal::digital::InputPin>(
 		&mut self,
-		_: &mut P,
+		irq: &mut P,
 		rx_addresses: Option<&[u16]>,
 	) -> nb::Result<Payload, nrf24::Error<SPIE>> {
-		self.receive().and_then(|mut buf| {
+		self.receive_with_irq(irq).and_then(|mut buf| {
 			// Make buffer 32 items long
 			while buf.len() < 32 {
 				buf.push(0u8).unwrap();
@@ -116,6 +116,12 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		self.ce_disable();
 		Ok(())
 	}
+	fn flush_rx(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+		self.flush_rx()
+	}
+	fn flush_tx(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+		self.flush_tx()
+	}
 }
 
 impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc1101<SPI> {
@@ -138,8 +144,8 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 		self.transmit_start(&payload.0)?;
 		Ok(())
 	}
-	fn transmit_poll(&mut self) -> nb::Result<Option<bool>, cc1101::Error<SpiE>> {
-		self.transmit_poll().map(|_| Some(true))
+	fn transmit_poll(&mut self) -> nb::Result<bool, cc1101::Error<SpiE>> {
+		self.transmit_poll().map(|_| true)
 	}
 	/// Receive with irq should work well (fast) :)
 	fn receive<P: embedded_hal::digital::InputPin>(
@@ -177,5 +183,11 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	}
 	fn to_idle(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.to_idle()
+	}
+	fn flush_rx(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+		self.flush_rx()
+	}
+	fn flush_tx(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+		self.flush_tx()
 	}
 }
