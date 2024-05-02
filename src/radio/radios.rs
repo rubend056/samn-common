@@ -129,7 +129,7 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 		delay.delay_ms(10);
 		self.reset()?;
 		delay.delay_ms(10);
-		self.configure();
+		self.configure()?;
 		self.flush_rx()?;
 		self.flush_tx()?;
 		Ok(())
