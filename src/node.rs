@@ -5,6 +5,8 @@ pub enum Board {
 	/// For all samn boards <= 8
 	SamnV8,
 	SamnV9,
+	SamnDC,
+	SamnSwitch,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
