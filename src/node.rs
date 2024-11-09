@@ -20,6 +20,8 @@ pub enum Sensor {
 	/// - Temperature in Celcius * 100
 	/// - Humidity in percentage
 	TempHum((i16, u8)),
+	/// Current in mA
+	Current(u16),
 }
 
 impl core::ops::Add for Sensor {
