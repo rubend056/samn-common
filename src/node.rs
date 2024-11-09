@@ -161,6 +161,11 @@ pub enum Message {
 	/// (node_id, node_addr)
 	Network(NodeId, NodeAddress),
 
+	/// A debug message 
+	/// 
+	/// (node_id, message)
+	DebugMessage(NodeId, [u8;20]),
+
 	// /// A relay searching a network for this specific node
 	// /// 
 	// /// (relay_id, node_id)
