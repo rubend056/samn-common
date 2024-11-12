@@ -103,6 +103,8 @@ pub enum Command {
 	Limbs,
 	/// Set a limb
 	SetLimb(Limb),
+	/// Toggle a limb
+	ToggleLimb(LimbId)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -159,7 +161,7 @@ pub enum Message {
 	/// (node_id)
 	SearchingNetwork(NodeId),
 
-	/// An id has been given to this node
+	/// An address has been given to this node
 	///
 	/// (node_id, node_addr)
 	Network(NodeId, NodeAddress),

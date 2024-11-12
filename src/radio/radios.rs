@@ -39,19 +39,23 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		// 		LAST_PIPE = pipe;
 		// 	}
 		// }
-		let mut bytes = [DEFAULT_PIPE; 5];
-		bytes[4] = payload.pipe();
-		self.set_tx_addr(&bytes).unwrap();
+		{
+			let mut bytes = [DEFAULT_PIPE; 5];
+			bytes[4] = payload.pipe();
+			self.set_tx_addr(&bytes).unwrap();
+		}
 
 		Ok(Some(self.send(&payload.0)?))
 	}
-	fn transmit_start(&mut self,payload: &Payload)-> Result<(), nrf24::Error<SPIE>> {
+	fn transmit_start(&mut self, payload: &Payload) -> Result<(), nrf24::Error<SPIE>> {
 		// We have to go to idle by disabling ce, otherwise radio won't switch
 		self.ce_disable();
 
-		let mut bytes = [DEFAULT_PIPE; 5];
-		bytes[4] = payload.pipe();
-		self.set_tx_addr(&bytes).unwrap();
+		{
+			let mut bytes = [DEFAULT_PIPE; 5];
+			bytes[4] = payload.pipe();
+			self.set_tx_addr(&bytes).unwrap();
+		}
 
 		self.send_start(&payload.0)?;
 		Ok(())
@@ -116,10 +120,10 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		self.ce_disable();
 		Ok(())
 	}
-	fn flush_rx(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+	fn flush_rx(&mut self) -> Result<(), nrf24::Error<SPIE>> {
 		self.flush_rx()
 	}
-	fn flush_tx(&mut self)-> Result<(), nrf24::Error<SPIE>> {
+	fn flush_tx(&mut self) -> Result<(), nrf24::Error<SPIE>> {
 		self.flush_tx()
 	}
 }
@@ -140,7 +144,7 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 		self.transmit(&payload.0)?;
 		Ok(None)
 	}
-	fn transmit_start(&mut self,payload: &Payload)-> Result<(), cc1101::Error<SpiE>> {
+	fn transmit_start(&mut self, payload: &Payload) -> Result<(), cc1101::Error<SpiE>> {
 		self.transmit_start(&payload.0)?;
 		Ok(())
 	}
@@ -184,10 +188,10 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	fn to_idle(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.to_idle()
 	}
-	fn flush_rx(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+	fn flush_rx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.flush_rx()
 	}
-	fn flush_tx(&mut self)-> Result<(), cc1101::Error<SpiE>> {
+	fn flush_tx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.flush_tx()
 	}
 }
