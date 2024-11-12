@@ -32,6 +32,7 @@ impl core::ops::Add for Sensor {
 			(Self::TempHum((temp, hum)), Self::TempHum((temp_in, hum_in))) => {
 				Self::TempHum(((temp + temp_in) / 2, (hum + hum_in) / 2))
 			}
+			(Self::Current(i), Self::Current(i_in)) => Self::Current(((i as u32 + i_in as u32) / 2) as u16),
 			_ => panic!("Can't add two different sensors"),
 		}
 	}
@@ -112,7 +113,7 @@ pub struct NodeInfo {
 }
 
 pub const LIMBS_MAX: usize = 3;
-pub type Limbs = [Option<Limb>;LIMBS_MAX];
+pub type Limbs = [Option<Limb>; LIMBS_MAX];
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -145,7 +146,7 @@ pub type NodeAddress = u16;
 pub type LimbId = u8;
 
 /// A message handles data transport between application layer
-#[derive(Serialize, Deserialize, Debug,Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Message {
 	// A message
 	Message(MessageData),
@@ -154,22 +155,21 @@ pub enum Message {
 	RelayMessage(NodeId, MessageData),
 
 	/// A node searching a network for itself
-	/// 
+	///
 	/// (node_id)
 	SearchingNetwork(NodeId),
 
-	/// An id has been given to this node 
-	/// 
+	/// An id has been given to this node
+	///
 	/// (node_id, node_addr)
 	Network(NodeId, NodeAddress),
 
-	/// A debug message 
-	/// 
+	/// A debug message
+	///
 	/// (node_id, message)
-	DebugMessage(NodeId, [u8;20]),
-
+	DebugMessage(NodeId, [u8; 20]),
 	// /// A relay searching a network for this specific node
-	// /// 
+	// ///
 	// /// (relay_id, node_id)
 	// RelaySearchingNetwork(NodeId, NodeId),
 }
