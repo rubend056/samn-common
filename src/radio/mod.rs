@@ -1,5 +1,6 @@
 /// Provides a trait for Radios to implement, so that we only use 1 API
 mod radios;
+pub mod helper;
 
 pub const DEFAULT_PIPE: u8 = 0x97u8;
 /// Gives the pipe this node addr will receive on
@@ -68,17 +69,32 @@ impl Payload {
 	/// length as 2nd byte, address as 3rd and 4th bytes.
 	pub fn new_with_addr(data: &[u8], address: u16, pipe: u8) -> Self {
 		let mut s = Self::default();
-		if data.len() > s.0.len() - 4 {
-			panic!("Data too big for Payload");
-		}
+		// if data.len() > s.0.len() - 4 {
+		// 	panic!("Data too big for Payload");
+		// }
 		s.0[0] = pipe;
-		s.0[1] = u8::try_from(data.len()).unwrap() | (1 << 7);
+		s.0[1] = (data.len() as u8) | (1 << 7);
 		let address_bytes = address.to_le_bytes();
 		s.0[2] = address_bytes[0];
 		s.0[3] = address_bytes[1];
+		// Copy data 4 bytes from start
 		for (i, d) in data.iter().enumerate() {
 			s.0[i + 4] = *d;
 		}
+		s
+	}
+	pub fn new_with_addr_from_array(data: [u8; 32], data_len: usize, address: u16, pipe: u8) -> Self {
+		let mut s = Self(data);
+		// if data_len > s.0.len() - 4 {
+		// 	panic!("Data too big for Payload");
+		// }
+		// Move data 4 bytes forward ->
+		s.0.rotate_right(4);
+		s.0[0] = pipe;
+		s.0[1] = (data_len as u8) | (1 << 7);
+		let address_bytes = address.to_le_bytes();
+		s.0[2] = address_bytes[0];
+		s.0[3] = address_bytes[1];
 		s
 	}
 
@@ -100,9 +116,13 @@ impl Payload {
 			2
 		}
 	}
-	/// Get the length of the packet
+	/// Get the length of the data
 	pub fn len(&self) -> usize {
 		(self.0[1] & !(1 << 7)).into()
+	}
+	/// Get total length of packet (header + data)
+	pub fn len_total(&self) -> usize {
+		self.len() + self.header_length()
 	}
 	/// Get the pipe
 	pub fn pipe(&self) -> u8 {
@@ -113,8 +133,10 @@ impl Payload {
 	}
 	/// Get the data section of the packet
 	pub fn data(&self) -> &[u8] {
-		let header_length = self.header_length();
-		&self.0[header_length..header_length + self.len()]
+		&self.0[self.header_length()..self.len_total()]
+	}
+	pub fn packet(&self) -> &[u8] {
+		&self.0[0..self.len_total()]
 	}
 }
 
@@ -125,6 +147,32 @@ mod test {
 		use crate::radio::Payload;
 
 		let mut payload = Payload::new_with_addr(&[1, 2, 3], 0x5555, 0x22);
+		assert_eq!(payload.data(), [1, 2, 3]);
+		assert_eq!(payload.len(), 3);
+		assert_eq!(payload.len_is_valid(), true);
+		assert_eq!(payload.header_length(), 4);
+		assert_eq!(payload.has_address(), true);
+		assert_eq!(payload.pipe(), 0x22);
+		assert_eq!(payload.address(), Some(0x5555));
+
+		payload.0[1] = 32 | (1 << 7);
+		assert_eq!(payload.len_is_valid(), false);
+		payload.0[1] = 28 | (1 << 7);
+		assert_eq!(payload.len_is_valid(), true);
+		payload.0[1] = 29 | (1 << 7);
+		assert_eq!(payload.len_is_valid(), false);
+	}
+
+	#[test]
+	fn try_payload_from() {
+		use crate::radio::Payload;
+
+
+		let mut data = [0u8;32];
+		data[0] = 1;
+		data[1] = 2;
+		data[2] = 3;
+		let mut payload = Payload::new_with_addr_from_array(data.clone(), 3, 0x5555, 0x22);
 		assert_eq!(payload.data(), [1, 2, 3]);
 		assert_eq!(payload.len(), 3);
 		assert_eq!(payload.len_is_valid(), true);

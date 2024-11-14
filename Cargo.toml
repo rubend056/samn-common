@@ -4,12 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-heapless = {version = "0.7", features = ["serde"]}
-serde = {version = "1.0.197", default-features = false}
-postcard = {git = "https://github.com/jamesmunns/postcard.git"}
+serde = {version = "1.0.197", default-features = false, optional = true}
+postcard = {git = "https://github.com/jamesmunns/postcard.git", optional = true}
 embedded-hal = "1"
-cc1101 = {path = "./cc1101"}
-nrf24 = {path = "./nrf24"}
+cc1101 = {path = "./cc1101", optional = true}
+nrf24 = {path = "./nrf24", optional = true}
 nb = "1.1.0"
 
 [dependencies.sonnerie]
@@ -18,5 +17,9 @@ branch = "master"
 optional = true
 
 [features]
-std = []
-sonnerie = ["dep:sonnerie", "std"]
+std = ["sonnerie", "postcard", "serde", "nrf24", "cc1101"]
+serde = ["dep:serde"]
+nrf24 = ["dep:nrf24"]
+cc1101 = ["dep:cc1101"]
+sonnerie = ["dep:sonnerie"]
+postcard = ["dep:postcard"]

@@ -1,11 +1,14 @@
 use crate::radio::DEFAULT_PIPE;
 
 use super::{Payload, Radio};
+#[cfg(feature = "cc1101")]
 use cc1101::Cc1101;
 use core::fmt::Debug;
 use embedded_hal::{digital::OutputPin, spi::SpiDevice};
+#[cfg(feature = "nrf24")]
 use nrf24::{Device, NRF24L01};
 
+#[cfg(feature = "nrf24")]
 impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> Radio<nrf24::Error<SPIE>>
 	for NRF24L01<E, CE, SPI>
 {
@@ -45,7 +48,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 			self.set_tx_addr(&bytes).unwrap();
 		}
 
-		Ok(Some(self.send(&payload.0)?))
+		Ok(Some(self.send(payload.packet())?))
 	}
 	fn transmit_start(&mut self, payload: &Payload) -> Result<(), nrf24::Error<SPIE>> {
 		// We have to go to idle by disabling ce, otherwise radio won't switch
@@ -57,7 +60,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 			self.set_tx_addr(&bytes).unwrap();
 		}
 
-		self.send_start(&payload.0)?;
+		self.send_start(payload.packet())?;
 		Ok(())
 	}
 	fn transmit_poll(&mut self) -> nb::Result<bool, nrf24::Error<SPIE>> {
@@ -73,13 +76,13 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		irq: &mut P,
 		rx_addresses: Option<&[u16]>,
 	) -> nb::Result<Payload, nrf24::Error<SPIE>> {
-		self.receive_with_irq(irq).and_then(|mut buf| {
+		self.receive_with_irq(irq).and_then(|buf| {
 			// Make buffer 32 items long
-			while buf.len() < 32 {
-				buf.push(0u8).unwrap();
-			}
+			// while buf.len() < 32 {
+			// 	buf.push(0u8).unwrap();
+			// }
 			// Turn it into a payload
-			let payload = Payload(buf.into_array().unwrap());
+			let payload = Payload(buf[..32].try_into().unwrap());
 			// Discard payloads that aren't for this address
 			if let (Some(address), Some(addresses)) = (payload.address(), rx_addresses) {
 				if addresses.contains(&address) {
@@ -128,6 +131,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	}
 }
 
+#[cfg(feature = "cc1101")]
 impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc1101<SPI> {
 	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), cc1101::Error<SpiE>> {
 		delay.delay_ms(10);
