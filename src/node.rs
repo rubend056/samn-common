@@ -41,6 +41,13 @@ impl<'a> BitWriter<'a> {
 	}
 
 	fn write_bits(&mut self, value: u32, bits: u8) -> NodeBitsResult<()> {
+		#[cfg(feature = "std")]
+		{
+			let max = 2u32.pow(bits as u32);
+			if value >= max {
+				panic!("value {value} > what bits can hold");
+			}
+		}
 		for i in (0..bits).rev() {
 			let bit = (value >> i) & 1;
 			if self.byte_pos >= self.buffer.len() {
@@ -810,7 +817,23 @@ impl core::ops::Add for LimbType {
 
 #[test]
 fn serialize_limbs_bits() {
-	let message = Message::Message(MessageData::Response {
+	fn check(message: Message) {
+		let mut data = [0u8; 32];
+		let data_l = message.serialize_to_bytes(&mut data).unwrap();
+		let message_out = Message::deserialize_from_bytes(&data).unwrap().0;
+		assert!(data_l < 32);
+		assert_eq!(message, message_out);
+
+		#[cfg(feature = "postcard")]
+		{
+			let mut data = [0u8; 32];
+			let data_l = postcard::to_slice(&message, &mut data).unwrap().len();
+			let message_out = postcard::from_bytes::<Message>(&data).unwrap();
+			assert!(data_l < 32);
+			assert_eq!(message, message_out);
+		}
+	}
+	check(Message::Message(MessageData::Response {
 		id: Some(55),
 		response: Response::Limbs([
 			Some(Limb(
@@ -829,19 +852,18 @@ fn serialize_limbs_bits() {
 			)),
 			None,
 		]),
-	});
-	let mut data = [0u8; 32];
-	let data_l = message.serialize_to_bytes(&mut data).unwrap();
-	let message_out = Message::deserialize_from_bytes(&data).unwrap().0;
-	assert!(data_l < 32);
-	assert_eq!(message, message_out);
+	}));
 
-	#[cfg(feature = "postcard")]
-	{
-		let mut data = [0u8; 32];
-		let data_l = postcard::to_slice(&message, &mut data).unwrap().len();
-		let message_out = postcard::from_bytes::<Message>(&data).unwrap();
-		assert!(data_l < 32);
-		assert_eq!(message, message_out);
-	}
+	check(Message::Message(MessageData::Command {
+		id: 55,
+		command: Command::Info,
+	}));
+	check(Message::Message(MessageData::Command {
+		id: 55,
+		command: Command::SetLimb(Limb(4, LimbType::Sensor { report_interval: 300, data: None })),
+	}));
+	check(Message::Message(MessageData::Command {
+		id: 20,
+		command: Command::Limbs,
+	}));
 }

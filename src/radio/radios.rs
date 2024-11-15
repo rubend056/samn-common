@@ -27,7 +27,9 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// Now it sets the tx address to the payload's if it has one
 	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, nrf24::Error<SPIE>> {
 		// We have to go to idle by disabling ce, otherwise radio won't switch
-		self.ce_disable();
+		// done in to_tx now
+		// self.ce_disable();
+		
 		// Removing because of stack oveflow on mega328, maybe fixed now :)
 		// it was never a stack overflow, it was a watchdog reset
 
@@ -52,7 +54,8 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	}
 	fn transmit_start(&mut self, payload: &Payload) -> Result<(), nrf24::Error<SPIE>> {
 		// We have to go to idle by disabling ce, otherwise radio won't switch
-		self.ce_disable();
+		// done in to_tx now
+		// self.ce_disable();
 
 		{
 			let mut bytes = [DEFAULT_PIPE; 5];
