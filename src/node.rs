@@ -11,7 +11,7 @@ pub enum NodeBitsError {
 	InvalidCommandCode,
 	InvalidResponseCode,
 	InvalidMessageCode,
-  InvalidMessageVersion,
+	InvalidMessageVersion,
 }
 pub type NodeBitsResult<T> = Result<T, NodeBitsError>;
 
@@ -105,6 +105,7 @@ impl<'a> BitReader<'a> {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub enum Board {
 	/// For all samn boards <= 8
@@ -127,6 +128,7 @@ impl Board {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub struct NodeInfo {
 	pub board: Board,
@@ -171,6 +173,7 @@ impl NodeInfo {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub enum Sensor {
 	/// Battery level (in percentage 0-100)
@@ -244,6 +247,7 @@ impl Sensor {
 
 /// Max 16 Variants
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub enum Actuator {
 	/// An on/off light
@@ -289,6 +293,7 @@ impl Actuator {
 
 /// Max 2 Variants
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub enum LimbType {
 	Sensor {
@@ -350,6 +355,7 @@ impl LimbType {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub struct Limb(pub LimbId, pub LimbType);
 
@@ -373,6 +379,7 @@ impl Limb {
 
 /// Max 16 Variants
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub enum Command {
 	/// Gets node Info
@@ -440,6 +447,7 @@ impl Command {
 
 /// Max 16 Variants
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 #[repr(u8)]
 pub enum Response {
@@ -447,7 +455,7 @@ pub enum Response {
 	Info(NodeInfo),
 	Limbs(Limbs),
 	Heartbeat(u32),
-	ErrLimbNotFound=200,
+	ErrLimbNotFound = 200,
 	ErrLimbTypeDoesntMatch,
 }
 
@@ -542,6 +550,7 @@ impl Response {
 
 /// Max 2 Variants
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub enum MessageData {
 	Command {
@@ -609,6 +618,7 @@ impl MessageData {
 
 /// Max 16 Variants
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(PartialEq, Eq))]
 #[derive(Clone, Debug)]
 pub enum Message {
 	// A message
@@ -635,15 +645,15 @@ pub enum Message {
 }
 
 /// Up to 4 types of message versions coexisting (0 - 3   2 bits)
-const MESSAGE_VERSION:u8 = 1;
+const MESSAGE_VERSION: u8 = 1;
 
 impl Message {
 	/// Serialize the Message into bytes, returns the number of bytes written.
 	pub fn serialize_to_bytes(&self, buffer: &mut [u8]) -> NodeBitsResult<usize> {
 		let mut writer = BitWriter::new(buffer);
 
-    // Write the message version
-    writer.write_bits(MESSAGE_VERSION as u32, 2)?;
+		// Write the message version
+		writer.write_bits(MESSAGE_VERSION as u32, 2)?;
 
 		// Write the message code (4 bits)
 		let message_code = self.message_code();
@@ -686,11 +696,11 @@ impl Message {
 	pub fn deserialize_from_bytes(buffer: &[u8]) -> NodeBitsResult<(Self, usize)> {
 		let mut reader = BitReader::new(buffer);
 
-    // Read the message version (2 bits)
-    let message_version = reader.read_bits(2)? as u8;
-    if message_version != MESSAGE_VERSION {
-      return Err(NodeBitsError::InvalidMessageVersion);
-    }
+		// Read the message version (2 bits)
+		let message_version = reader.read_bits(2)? as u8;
+		if message_version != MESSAGE_VERSION {
+			return Err(NodeBitsError::InvalidMessageVersion);
+		}
 
 		// Read the message code (4 bits)
 		let message_code = reader.read_bits(4)? as u8;
@@ -732,10 +742,7 @@ impl Message {
 			}
 		};
 
-		Ok((
-			message,
-			reader.finalize(),
-		))
+		Ok((message, reader.finalize()))
 	}
 
 	fn message_code(&self) -> u8 {
@@ -824,8 +831,17 @@ fn serialize_limbs_bits() {
 		]),
 	});
 	let mut data = [0u8; 32];
-	let data_l = message.serialize_to_bytes(&data).unwrap();
-  let message_out = Message::deserialize_from_bytes(&data).unwrap().0;
-  assert_eq!(message, message_out);
-}
+	let data_l = message.serialize_to_bytes(&mut data).unwrap();
+	let message_out = Message::deserialize_from_bytes(&data).unwrap().0;
+	assert!(data_l < 32);
+	assert_eq!(message, message_out);
 
+	#[cfg(feature = "postcard")]
+	{
+		let mut data = [0u8; 32];
+		let data_l = postcard::to_slice(&message, &mut data).unwrap().len();
+		let message_out = postcard::from_bytes::<Message>(&data).unwrap();
+		assert!(data_l < 32);
+		assert_eq!(message, message_out);
+	}
+}

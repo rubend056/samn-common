@@ -136,7 +136,7 @@ impl Payload {
 		&self.0[self.header_length()..self.len_total()]
 	}
 	pub fn packet(&self) -> &[u8] {
-		&self.0[0..self.len_total()]
+		&self.0[..self.len_total()]
 	}
 }
 
@@ -154,6 +154,7 @@ mod test {
 		assert_eq!(payload.has_address(), true);
 		assert_eq!(payload.pipe(), 0x22);
 		assert_eq!(payload.address(), Some(0x5555));
+		assert_eq!(payload.packet(), &payload.0[..7]);
 
 		payload.0[1] = 32 | (1 << 7);
 		assert_eq!(payload.len_is_valid(), false);
@@ -180,6 +181,7 @@ mod test {
 		assert_eq!(payload.has_address(), true);
 		assert_eq!(payload.pipe(), 0x22);
 		assert_eq!(payload.address(), Some(0x5555));
+		assert_eq!(payload.packet(), &payload.0[..7]);
 
 		payload.0[1] = 32 | (1 << 7);
 		assert_eq!(payload.len_is_valid(), false);
