@@ -12,6 +12,10 @@ use nrf24::{Device, NRF24L01};
 impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> Radio<nrf24::Error<SPIE>>
 	for NRF24L01<E, CE, SPI>
 {
+	fn ce_disable_(&mut self) -> Result<(), nrf24::Error<SPIE>> {
+			self.ce_disable();
+			Ok(())
+	}
 	fn init<D: embedded_hal::delay::DelayNs>(&mut self, _: &mut D) -> Result<(), nrf24::Error<SPIE>> {
 		self.configure()
 	}
@@ -55,7 +59,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	fn transmit_start(&mut self, payload: &Payload) -> Result<(), nrf24::Error<SPIE>> {
 		// We have to go to idle by disabling ce, otherwise radio won't switch
 		// done in to_tx now
-		// self.ce_disable();
+		self.ce_disable();
 
 		{
 			let mut bytes = [DEFAULT_PIPE; 5];
@@ -67,7 +71,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		Ok(())
 	}
 	fn transmit_poll(&mut self) -> nb::Result<bool, nrf24::Error<SPIE>> {
-		self.poll_write()
+		self.poll_write_no_ce_enable()
 	}
 
 	/// Receive with irq should work well (fast) :)
@@ -136,6 +140,9 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 
 #[cfg(feature = "cc1101")]
 impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc1101<SPI> {
+	fn ce_disable_(&mut self) -> Result<(), cc1101::Error<SpiE>> {
+			Ok(())
+	}
 	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), cc1101::Error<SpiE>> {
 		delay.delay_ms(10);
 		self.reset()?;

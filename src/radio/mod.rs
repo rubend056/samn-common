@@ -43,6 +43,9 @@ pub trait Radio<E> {
 	fn to_tx(&mut self) -> Result<(), E>;
 	fn to_idle(&mut self) -> Result<(), E>;
 
+	/// TESTTTT
+	fn ce_disable_(&mut self) -> Result<(), E>;
+
 	fn flush_rx(&mut self) -> Result<(), E>;
 	fn flush_tx(&mut self) -> Result<(), E>;
 }
