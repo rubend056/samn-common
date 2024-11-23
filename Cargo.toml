@@ -15,7 +15,18 @@ bity = {path = "./bity"}
 nb = "1.1.0"
 
 [features]
-std = ["sonnerie", "postcard", "serde", "nrf24", "cc1101", "nrf24/std"]
+std = [
+  "sonnerie",
+  "postcard",
+  "serde",
+  "nrf24",
+  "cc1101",
+
+  "nrf24/std",
+  "errors/std",
+  "bity/std",
+  "cc1101/std",
+]
 serde = ["dep:serde"]
 nrf24 = ["dep:nrf24"]
 cc1101 = ["dep:cc1101"]
