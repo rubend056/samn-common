@@ -9,3 +9,7 @@ pub mod sonnerie;
 pub extern crate cc1101;
 #[cfg(feature = "nrf24")]
 pub extern crate nrf24;
+
+
+pub extern crate errors;
+pub extern crate bity;

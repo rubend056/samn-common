@@ -3,75 +3,52 @@ use crate::radio::DEFAULT_PIPE;
 use super::{Payload, Radio};
 #[cfg(feature = "cc1101")]
 use cc1101::Cc1101;
-use core::fmt::Debug;
 use embedded_hal::{digital::OutputPin, spi::SpiDevice};
 #[cfg(feature = "nrf24")]
-use nrf24::{Device, NRF24L01};
+use nrf24::NRF24L01;
 
 #[cfg(feature = "nrf24")]
-impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> Radio<nrf24::Error<SPIE>>
-	for NRF24L01<E, CE, SPI>
+impl<SPI: SpiDevice<u8>, CE: OutputPin> Radio<nrf24::Error<SPI::Error, CE::Error>>
+	for NRF24L01<SPI, CE>
 {
-	fn ce_disable_(&mut self) -> Result<(), nrf24::Error<SPIE>> {
-			self.ce_disable();
-			Ok(())
-	}
-	fn init<D: embedded_hal::delay::DelayNs>(&mut self, _: &mut D) -> Result<(), nrf24::Error<SPIE>> {
-		self.configure()
-	}
-	/// Send still waits for retransmissions to finish :(
-	/// Maybe we can do a send that doesn't wait? no, for that
-	/// we'd have to switch off acks + retransmissions.
-	/// Or, we could just set retransmissions to 7 + 1ms in between.
-	/// That gives us around 10ms transmission time, instead of 4ms*15= around 100ms transmission time on max settings.
-	/// DONE! Have to test. WORKS!
-	///
-	/// There could be a power issue with polling too hard on the radio...
-	///
-	/// Now it sets the tx address to the payload's if it has one
-	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, nrf24::Error<SPIE>> {
-		// We have to go to idle by disabling ce, otherwise radio won't switch
-		// done in to_tx now
-		// self.ce_disable();
-		
-		// Removing because of stack oveflow on mega328, maybe fixed now :)
-		// it was never a stack overflow, it was a watchdog reset
+	fn init<D: embedded_hal::delay::DelayNs>(
+		&mut self,
+		delay: &mut D,
+	) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+		self.initialize(delay)?;
+		self.configure()?;
 
-		// static mut LAST_PIPE: u8 = 0;
-		// let pipe = payload.pipe();
-		// if unsafe { LAST_PIPE } != pipe {
-		// 	// Set the tx address
-		// 	let mut bytes = [DEFAULT_PIPE; 5];
-		// 	bytes[4] = pipe;
-		// 	self.set_tx_addr(&bytes).unwrap();
-		// 	unsafe {
-		// 		LAST_PIPE = pipe;
-		// 	}
-		// }
-		{
-			let mut bytes = [DEFAULT_PIPE; 5];
-			bytes[4] = payload.pipe();
-			self.set_tx_addr(&bytes).unwrap();
-		}
-
-		Ok(Some(self.send(payload.packet())?))
-	}
-	fn transmit_start(&mut self, payload: &Payload) -> Result<(), nrf24::Error<SPIE>> {
-		// We have to go to idle by disabling ce, otherwise radio won't switch
-		// done in to_tx now
-		self.ce_disable();
-
-		{
-			let mut bytes = [DEFAULT_PIPE; 5];
-			bytes[4] = payload.pipe();
-			self.set_tx_addr(&bytes).unwrap();
-		}
-
-		self.send_start(payload.packet())?;
+		// Enable first 2 pipes
+		const PIPES: [bool; 6] = [true, true, false, false, false, false];
+		self.set_auto_ack_pipes(&PIPES)?;
+		self.set_rx_enabled_pipes(&PIPES)?;
+		self.set_dynamic_payload_pipes(&PIPES)?;
 		Ok(())
 	}
-	fn transmit_poll(&mut self) -> nb::Result<bool, nrf24::Error<SPIE>> {
-		self.poll_write_no_ce_enable()
+
+	fn transmit_start<D: embedded_hal::delay::DelayNs>(
+		&mut self,
+		payload: &Payload,
+		delay: &mut D,
+	) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+		// Set tx & rx0 to  pipe #
+		static mut LAST_PIPE: u8 = 0;
+		let pipe = payload.pipe();
+		if unsafe { LAST_PIPE } != pipe {
+			// Set the tx address
+			let addr = [pipe, DEFAULT_PIPE, DEFAULT_PIPE, DEFAULT_PIPE, DEFAULT_PIPE];
+			self.set_tx_addr(&addr)?;
+			self.set_rx_addr(0, &addr)?;
+			unsafe {
+				LAST_PIPE = pipe;
+			}
+		}
+
+		self.transmission_start(payload.payload(), nrf24::PayloadType::Payload, delay)?;
+		Ok(())
+	}
+	fn transmit_poll(&mut self) -> nb::Result<bool, nrf24::Error<SPI::Error, CE::Error>> {
+		self.transmission_ended()
 	}
 
 	/// Receive with irq should work well (fast) :)
@@ -80,70 +57,61 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// Leaving other packets in the FIFO unread. This should be fixed now...
 	fn receive<P: embedded_hal::digital::InputPin>(
 		&mut self,
-		irq: &mut P,
+		_: &mut P,
 		rx_addresses: Option<&[u16]>,
-	) -> nb::Result<Payload, nrf24::Error<SPIE>> {
-		self.receive_with_irq(irq).and_then(|buf| {
-			// Make buffer 32 items long
-			// while buf.len() < 32 {
-			// 	buf.push(0u8).unwrap();
-			// }
-			// Turn it into a payload
-			let payload = Payload(buf[..32].try_into().unwrap());
+	) -> nb::Result<Payload, nrf24::Error<SPI::Error, CE::Error>> {
+		if let Some((_, buf)) = self.receive_maybe()? {
+			let payload = Payload(buf);
 			// Discard payloads that aren't for this address
 			if let (Some(address), Some(addresses)) = (payload.address(), rx_addresses) {
 				if addresses.contains(&address) {
-					nb::Result::Ok(payload)
-				} else {
-					nb::Result::Err(nb::Error::WouldBlock)
+					return nb::Result::Ok(payload);
 				}
 			} else {
-				nb::Result::Ok(payload)
+				return nb::Result::Ok(payload);
 			}
-		})
+		}
+		nb::Result::Err(nb::Error::WouldBlock)
 	}
-	fn set_rx_filter(&mut self, rx_pipes: &[u8]) -> Result<(), nrf24::Error<SPIE>> {
-		for (i, address) in rx_pipes.iter().enumerate() {
-			if i > 5 {
-				return Ok(());
-			}
-
-			if i < 2 {
-				// For pipe numbers 0 and 1 we have 5 bytes to work with
-				let mut addr = [DEFAULT_PIPE; 5];
-				addr[4] = *address;
-				self.set_rx_addr(i, &addr)?;
-			} else {
-				// For pipes 2,3,4,5 only set the least siginificant byte
-				self.set_rx_addr(i, &[*address])?;
+	fn set_rx_filter(
+		&mut self,
+		rx_pipes: &[u8],
+	) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+		for (i, pipe) in rx_pipes.iter().enumerate() {
+			if i <= 1 {
+				self.set_rx_addr(
+					i as u8,
+					&[
+						*pipe,
+						DEFAULT_PIPE,
+						DEFAULT_PIPE,
+						DEFAULT_PIPE,
+						DEFAULT_PIPE,
+					],
+				)?;
+			} else if i <= 5 {
+				self.set_rx_addr(i as u8, &[*pipe])?;
 			}
 		}
 		Ok(())
 	}
-	fn to_tx(&mut self) -> Result<(), nrf24::Error<SPIE>> {
+	fn to_tx(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
 		self.tx()
 	}
-	fn to_rx(&mut self) -> Result<(), nrf24::Error<SPIE>> {
+	fn to_rx(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
 		self.rx()
 	}
-	fn to_idle(&mut self) -> Result<(), nrf24::Error<SPIE>> {
-		self.ce_disable();
-		Ok(())
-	}
-	fn flush_rx(&mut self) -> Result<(), nrf24::Error<SPIE>> {
-		self.flush_rx()
-	}
-	fn flush_tx(&mut self) -> Result<(), nrf24::Error<SPIE>> {
-		self.flush_tx()
+	fn to_idle(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+		self.idle()
 	}
 }
 
 #[cfg(feature = "cc1101")]
 impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc1101<SPI> {
-	fn ce_disable_(&mut self) -> Result<(), cc1101::Error<SpiE>> {
-			Ok(())
-	}
-	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), cc1101::Error<SpiE>> {
+	fn init<D: embedded_hal::delay::DelayNs>(
+		&mut self,
+		delay: &mut D,
+	) -> Result<(), cc1101::Error<SpiE>> {
 		delay.delay_ms(10);
 		self.reset()?;
 		delay.delay_ms(10);
@@ -154,13 +122,12 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	}
 	/// Transmit should work well (fast), because there are no retrasmissions/acks
 	/// This just sends the packet as is
-	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, cc1101::Error<SpiE>> {
-		self.transmit(&payload.0)?;
-		Ok(None)
-	}
-	fn transmit_start(&mut self, payload: &Payload) -> Result<(), cc1101::Error<SpiE>> {
-		self.transmit_start(&payload.0)?;
-		Ok(())
+	fn transmit_start<D: embedded_hal::delay::DelayNs>(
+		&mut self,
+		payload: &Payload,
+		_: &mut D,
+	) -> Result<(), cc1101::Error<SpiE>> {
+		self.transmit_start(&payload.0)
 	}
 	fn transmit_poll(&mut self) -> nb::Result<bool, cc1101::Error<SpiE>> {
 		self.transmit_poll().map(|_| true)
@@ -202,10 +169,10 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	fn to_idle(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.to_idle()
 	}
-	fn flush_rx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
-		self.flush_rx()
-	}
-	fn flush_tx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
-		self.flush_tx()
-	}
+	// fn flush_rx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
+	// 	self.flush_rx()
+	// }
+	// fn flush_tx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
+	// 	self.flush_tx()
+	// }
 }

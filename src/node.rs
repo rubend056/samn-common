@@ -1,3 +1,5 @@
+use bity::{BitReader, BitWriter};
+use errors::Discriminant;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -5,9 +7,9 @@ pub const COMMAND_ID_MAX:u8 = 2u8.pow(6);
 
 
 #[derive(Clone, Debug)]
-pub enum NodeBitsError {
-	BufferOverflow,
-	BufferUnderflow,
+#[repr(u8)]
+pub enum NodeSerializeError {
+	BitError(bity::Error),
 	InvalidBoardCode,
 	InvalidSensorCode,
 	InvalidActuatorCode,
@@ -16,7 +18,31 @@ pub enum NodeBitsError {
 	InvalidMessageCode,
 	InvalidMessageVersion,
 }
-pub type NodeBitsResult<T> = Result<T, NodeBitsError>;
+const ERROR_MAX: u8 = 20;
+pub type NodeBitsResult<T> = Result<T, NodeSerializeError>;
+
+impl From<bity::Error> for NodeSerializeError {
+	fn from(value: bity::Error) -> Self {
+		Self::BitError(value)
+	}
+}
+
+impl Discriminant for NodeSerializeError {
+	fn discriminant(&self) -> u8 {
+		// SAFETY: Because `Self` is marked `repr(u8)`, its layout is a `repr(C)` `union`
+		// between `repr(C)` structs, each of which has the `u8` discriminant as its first
+		// field, so we can read the discriminant without offsetting the pointer.
+		match self {
+			Self::BitError(err) => err.discriminant(),
+			_ => {
+				(unsafe { *<*const _>::from(self).cast::<u8>() }) + bity::Error::discriminant_max()
+			}
+		}
+	}
+	fn discriminant_max() -> u8 {
+		ERROR_MAX
+	}
+}
 
 pub type NodeId = u32;
 pub type NodeAddress = u16;
@@ -27,92 +53,6 @@ pub const LIMBS_MAX: usize = 3;
 // pub type Limbs = Vec<Limb, 3>;
 pub type Limbs = [Option<Limb>; 3];
 
-/// Helper struct for writing bits into a byte buffer.
-struct BitWriter<'a> {
-	buffer: &'a mut [u8],
-	byte_pos: usize,
-	bit_pos: u8,
-}
-
-impl<'a> BitWriter<'a> {
-	fn new(buffer: &'a mut [u8]) -> Self {
-		BitWriter {
-			buffer,
-			byte_pos: 0,
-			bit_pos: 0,
-		}
-	}
-
-	fn write_bits(&mut self, value: u32, bits: u8) -> NodeBitsResult<()> {
-		#[cfg(feature = "std")]
-		if bits < 32 {
-			let max = 2u32.pow(bits as u32);
-			if value >= max {
-				panic!("value {value} > what {bits} bits can hold, a max of {max}");
-			}
-		}
-		for i in (0..bits).rev() {
-			let bit = (value >> i) & 1;
-			if self.byte_pos >= self.buffer.len() {
-				return Err(NodeBitsError::BufferOverflow);
-			}
-			self.buffer[self.byte_pos] |= (bit as u8) << (7 - self.bit_pos);
-			self.bit_pos += 1;
-			if self.bit_pos == 8 {
-				self.byte_pos += 1;
-				self.bit_pos = 0;
-			}
-		}
-		Ok(())
-	}
-
-	fn finalize(&mut self) -> usize {
-		if self.bit_pos != 0 {
-			self.byte_pos += 1;
-		}
-		self.byte_pos
-	}
-}
-
-/// Helper struct for reading bits from a byte buffer.
-struct BitReader<'a> {
-	buffer: &'a [u8],
-	byte_pos: usize,
-	bit_pos: u8,
-}
-
-impl<'a> BitReader<'a> {
-	fn new(buffer: &'a [u8]) -> Self {
-		BitReader {
-			buffer,
-			byte_pos: 0,
-			bit_pos: 0,
-		}
-	}
-
-	fn read_bits(&mut self, bits: u8) -> NodeBitsResult<u32> {
-		let mut value = 0;
-		for _ in 0..bits {
-			if self.byte_pos >= self.buffer.len() {
-				return Err(NodeBitsError::BufferUnderflow);
-			}
-			let bit = (self.buffer[self.byte_pos] >> (7 - self.bit_pos)) & 1;
-			value = (value << 1) | (bit as u32);
-			self.bit_pos += 1;
-			if self.bit_pos == 8 {
-				self.byte_pos += 1;
-				self.bit_pos = 0;
-			}
-		}
-		Ok(value)
-	}
-	fn finalize(&mut self) -> usize {
-		if self.bit_pos != 0 {
-			self.byte_pos += 1;
-		}
-		self.byte_pos
-	}
-}
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", derive(PartialEq, Eq))]
@@ -132,7 +72,7 @@ impl Board {
 			1 => Ok(Board::SamnV9),
 			2 => Ok(Board::SamnDC),
 			3 => Ok(Board::SamnSwitch),
-			_ => Err(NodeBitsError::InvalidBoardCode),
+			_ => Err(NodeSerializeError::InvalidBoardCode),
 		}
 	}
 }
@@ -241,7 +181,7 @@ impl Sensor {
 				let current = reader.read_bits(16)? as u16;
 				Ok(Sensor::Current(current))
 			}
-			_ => Err(NodeBitsError::InvalidSensorCode),
+			_ => Err(NodeSerializeError::InvalidSensorCode),
 		}
 	}
 
@@ -289,7 +229,7 @@ impl Actuator {
 				let on = reader.read_bits(1)? == 1;
 				Ok(Actuator::Light(on))
 			}
-			_ => Err(NodeBitsError::InvalidActuatorCode),
+			_ => Err(NodeSerializeError::InvalidActuatorCode),
 		}
 	}
 
@@ -317,7 +257,10 @@ pub enum LimbType {
 impl LimbType {
 	fn serialize_to_bits(&self, writer: &mut BitWriter) -> NodeBitsResult<()> {
 		match self {
-			LimbType::Sensor { report_interval, data } => {
+			LimbType::Sensor {
+				report_interval,
+				data,
+			} => {
 				// Write is_sensor bit (1)
 				writer.write_bits(1, 1)?;
 				// Write report_interval (16 bits)
@@ -355,7 +298,10 @@ impl LimbType {
 			} else {
 				None
 			};
-			Ok(LimbType::Sensor { report_interval, data })
+			Ok(LimbType::Sensor {
+				report_interval,
+				data,
+			})
 		} else {
 			// Deserialize Actuator
 			let actuator = Actuator::deserialize_from_bits(reader)?;
@@ -440,7 +386,7 @@ impl Command {
 				let limb_id = reader.read_bits(4)? as u8;
 				Ok(Command::ToggleLimb(limb_id))
 			}
-			_ => Err(NodeBitsError::InvalidCommandCode),
+			_ => Err(NodeSerializeError::InvalidCommandCode),
 		}
 	}
 
@@ -542,7 +488,7 @@ impl Response {
 			}
 			200 => Ok(Response::ErrLimbNotFound),
 			201 => Ok(Response::ErrLimbTypeDoesntMatch),
-			_ => Err(NodeBitsError::InvalidResponseCode),
+			_ => Err(NodeSerializeError::InvalidResponseCode),
 		}
 	}
 
@@ -599,8 +545,8 @@ impl MessageData {
 		Ok(())
 	}
 
-	fn deserialize_from_bits(reader: &mut BitReader) -> NodeBitsResult<(Self, usize)> {
-		let start_byte = reader.byte_pos;
+	fn deserialize_from_bits(reader: &mut BitReader) -> NodeBitsResult<Self> {
+		// let start_byte = reader.byte_pos;
 
 		// Read is_command bit (1 bit)
 		let is_command = reader.read_bits(1)? == 1;
@@ -610,18 +556,15 @@ impl MessageData {
 		if is_command {
 			// Deserialize command
 			let command = Command::deserialize_from_bits(reader)?;
-			Ok((MessageData::Command { id, command }, reader.byte_pos - start_byte))
+			Ok(MessageData::Command { id, command })
 		} else {
 			// Deserialize response
 			let response = Response::deserialize_from_bits(reader)?;
 			let id_option = if id == 0 { None } else { Some(id) };
-			Ok((
-				MessageData::Response {
-					id: id_option,
-					response,
-				},
-				reader.byte_pos - start_byte,
-			))
+			Ok(MessageData::Response {
+				id: id_option,
+				response,
+			})
 		}
 	}
 }
@@ -709,7 +652,7 @@ impl Message {
 		// Read the message version (2 bits)
 		let message_version = reader.read_bits(2)? as u8;
 		if message_version != MESSAGE_VERSION {
-			return Err(NodeBitsError::InvalidMessageVersion);
+			return Err(NodeSerializeError::InvalidMessageVersion);
 		}
 
 		// Read the message code (4 bits)
@@ -718,13 +661,13 @@ impl Message {
 		let message = match message_code {
 			0 => {
 				// Message::Message
-				let (data, _) = MessageData::deserialize_from_bits(&mut reader)?;
+				let data = MessageData::deserialize_from_bits(&mut reader)?;
 				Message::Message(data)
 			}
 			1 => {
 				// Message::RelayMessage
 				let node_id = reader.read_bits(32)?;
-				let (data, _) = MessageData::deserialize_from_bits(&mut reader)?;
+				let data = MessageData::deserialize_from_bits(&mut reader)?;
 				Message::RelayMessage(node_id, data)
 			}
 			2 => {
@@ -748,7 +691,7 @@ impl Message {
 				Message::DebugMessage(node_id, msg)
 			}
 			_ => {
-				return Err(NodeBitsError::InvalidMessageCode);
+				return Err(NodeSerializeError::InvalidMessageCode);
 			}
 		};
 
@@ -771,11 +714,15 @@ impl core::ops::Add for Sensor {
 	type Output = Sensor;
 	fn add(self, rhs: Self) -> Self::Output {
 		match (self, rhs) {
-			(Self::Battery(level), Self::Battery(level_in)) => Self::Battery((level + level_in) / 2),
+			(Self::Battery(level), Self::Battery(level_in)) => {
+				Self::Battery((level + level_in) / 2)
+			}
 			(Self::TempHum((temp, hum)), Self::TempHum((temp_in, hum_in))) => {
 				Self::TempHum(((temp + temp_in) / 2, (hum + hum_in) / 2))
 			}
-			(Self::Current(i), Self::Current(i_in)) => Self::Current(((i as u32 + i_in as u32) / 2) as u16),
+			(Self::Current(i), Self::Current(i_in)) => {
+				Self::Current(((i as u32 + i_in as u32) / 2) as u16)
+			}
 			_ => panic!("Can't add two different sensors"),
 		}
 	}
@@ -812,7 +759,9 @@ impl core::ops::Add for LimbType {
 					(Some(s), Some(s_in)) => Some(s + s_in),
 				},
 			},
-			(Self::Actuator(actuator), Self::Actuator(actuator_in)) => Self::Actuator(actuator + actuator_in),
+			(Self::Actuator(actuator), Self::Actuator(actuator_in)) => {
+				Self::Actuator(actuator + actuator_in)
+			}
 			_ => panic!("Can't add two different Limb Types"),
 		}
 	}
@@ -863,7 +812,13 @@ fn serialize_limbs_bits() {
 	}));
 	check(Message::Message(MessageData::Command {
 		id: 55,
-		command: Command::SetLimb(Limb(4, LimbType::Sensor { report_interval: 300, data: None })),
+		command: Command::SetLimb(Limb(
+			4,
+			LimbType::Sensor {
+				report_interval: 300,
+				data: None,
+			},
+		)),
 	}));
 	check(Message::Message(MessageData::Command {
 		id: 20,

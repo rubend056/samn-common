@@ -1,6 +1,6 @@
+pub mod helper;
 /// Provides a trait for Radios to implement, so that we only use 1 API
 mod radios;
-pub mod helper;
 
 pub const DEFAULT_PIPE: u8 = 0x97u8;
 /// Gives the pipe this node addr will receive on
@@ -23,9 +23,13 @@ pub trait Radio<E> {
 	/// Resets the device (if possible) and configures with default settings
 	fn init<D: embedded_hal::delay::DelayNs>(&mut self, delay: &mut D) -> Result<(), E>;
 	/// A blocking transmit, waits for tramission to finish.
-	fn transmit(&mut self, payload: &Payload) -> Result<Option<bool>, E>;
+	// fn transmit<D: embedded_hal::delay::DelayNs>(&mut self, payload: &Payload, delay: &mut D) -> Result<bool, E>;
 	/// A non-blocking transmission, puts packet in FIFO and puts radio in transmit mode.
-	fn transmit_start(&mut self, payload: &Payload) -> Result<(), E>;
+	fn transmit_start<D: embedded_hal::delay::DelayNs>(
+		&mut self,
+		payload: &Payload,
+		delay: &mut D,
+	) -> Result<(), E>;
 	/// Polls the trasmission. Returning when tranmission was done.
 	fn transmit_poll(&mut self) -> nb::Result<bool, E>;
 	/// Implemented on nrf24 + cc1101
@@ -36,18 +40,15 @@ pub trait Radio<E> {
 		packet_ready_pin: &mut P,
 		rx_addresses: Option<&[u16]>,
 	) -> nb::Result<Payload, E>;
-	/// For the nrf24 this will set the 6 data pipe addresses ()
+	/// For the nrf24 this will set the 6 data pipe addresses
 	/// For the cc1101 this will set the 1 address filter (to the least significant byte on the first address)
 	fn set_rx_filter(&mut self, rx_pipes: &[u8]) -> Result<(), E>;
 	fn to_rx(&mut self) -> Result<(), E>;
 	fn to_tx(&mut self) -> Result<(), E>;
 	fn to_idle(&mut self) -> Result<(), E>;
 
-	/// TESTTTT
-	fn ce_disable_(&mut self) -> Result<(), E>;
-
-	fn flush_rx(&mut self) -> Result<(), E>;
-	fn flush_tx(&mut self) -> Result<(), E>;
+	// fn flush_rx(&mut self) -> Result<(), E>;
+	// fn flush_tx(&mut self) -> Result<(), E>;
 }
 
 /// Payload is (pipe, len, addr1, addr0, ...data)
@@ -86,7 +87,12 @@ impl Payload {
 		}
 		s
 	}
-	pub fn new_with_addr_from_array(data: [u8; 32], data_len: usize, address: u16, pipe: u8) -> Self {
+	pub fn new_with_addr_from_array(
+		data: [u8; 32],
+		data_len: usize,
+		address: u16,
+		pipe: u8,
+	) -> Self {
 		let mut s = Self(data);
 		// if data_len > s.0.len() - 4 {
 		// 	panic!("Data too big for Payload");
@@ -134,11 +140,12 @@ impl Payload {
 	pub fn len_is_valid(&self) -> bool {
 		self.len() != 0 && self.len() <= self.0.len() - self.header_length()
 	}
-	/// Get the data section of the packet
+	/// Get the data section of the payload
 	pub fn data(&self) -> &[u8] {
 		&self.0[self.header_length()..self.len_total()]
 	}
-	pub fn packet(&self) -> &[u8] {
+	/// Get the entire payload
+	pub fn payload(&self) -> &[u8] {
 		&self.0[..self.len_total()]
 	}
 }
@@ -157,7 +164,7 @@ mod test {
 		assert_eq!(payload.has_address(), true);
 		assert_eq!(payload.pipe(), 0x22);
 		assert_eq!(payload.address(), Some(0x5555));
-		assert_eq!(payload.packet(), &payload.0[..7]);
+		assert_eq!(payload.payload(), &payload.0[..7]);
 
 		payload.0[1] = 32 | (1 << 7);
 		assert_eq!(payload.len_is_valid(), false);
@@ -171,8 +178,7 @@ mod test {
 	fn try_payload_from() {
 		use crate::radio::Payload;
 
-
-		let mut data = [0u8;32];
+		let mut data = [0u8; 32];
 		data[0] = 1;
 		data[1] = 2;
 		data[2] = 3;
@@ -184,7 +190,7 @@ mod test {
 		assert_eq!(payload.has_address(), true);
 		assert_eq!(payload.pipe(), 0x22);
 		assert_eq!(payload.address(), Some(0x5555));
-		assert_eq!(payload.packet(), &payload.0[..7]);
+		assert_eq!(payload.payload(), &payload.0[..7]);
 
 		payload.0[1] = 32 | (1 << 7);
 		assert_eq!(payload.len_is_valid(), false);

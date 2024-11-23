@@ -6,18 +6,16 @@ edition = "2021"
 [dependencies]
 serde = {version = "1.0.197", default-features = false, optional = true}
 postcard = {git = "https://github.com/jamesmunns/postcard.git", optional = true}
+sonnerie = {git = "https://github.com/rubend056/sonnerie.git", branch = "master", optional = true}
 embedded-hal = "1"
 cc1101 = {path = "./cc1101", optional = true}
 nrf24 = {path = "./nrf24", optional = true}
+errors = {path = "./errors"}
+bity = {path = "./bity"}
 nb = "1.1.0"
 
-[dependencies.sonnerie]
-git = "https://github.com/rubend056/sonnerie.git"
-branch = "master"
-optional = true
-
 [features]
-std = ["sonnerie", "postcard", "serde", "nrf24", "cc1101"]
+std = ["sonnerie", "postcard", "serde", "nrf24", "cc1101", "nrf24/std"]
 serde = ["dep:serde"]
 nrf24 = ["dep:nrf24"]
 cc1101 = ["dep:cc1101"]
