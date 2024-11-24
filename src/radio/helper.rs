@@ -1,3 +1,8 @@
+/**
+ * These are helpers to make node code simpler
+ * 
+ */
+
 use crate::node::{Message, NodeSerializeError, NodeId};
 use crate::radio::*;
 use embedded_hal::{delay::DelayNs, digital::InputPin};

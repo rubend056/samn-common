@@ -11,6 +11,7 @@ use nrf24::NRF24L01;
 impl<SPI: SpiDevice<u8>, CE: OutputPin> Radio<nrf24::Error<SPI::Error, CE::Error>>
 	for NRF24L01<SPI, CE>
 {
+	
 	fn init<D: embedded_hal::delay::DelayNs>(
 		&mut self,
 		delay: &mut D,
@@ -31,6 +32,8 @@ impl<SPI: SpiDevice<u8>, CE: OutputPin> Radio<nrf24::Error<SPI::Error, CE::Error
 		payload: &Payload,
 		delay: &mut D,
 	) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+		self.to_tx()?;
+
 		// Set tx & rx0 to  pipe #
 		static mut LAST_PIPE: u8 = 0;
 		let pipe = payload.pipe();
@@ -60,6 +63,7 @@ impl<SPI: SpiDevice<u8>, CE: OutputPin> Radio<nrf24::Error<SPI::Error, CE::Error
 		_: &mut P,
 		rx_addresses: Option<&[u16]>,
 	) -> nb::Result<Payload, nrf24::Error<SPI::Error, CE::Error>> {
+
 		if let Some((_, buf)) = self.receive_maybe()? {
 			let payload = Payload(buf);
 			// Discard payloads that aren't for this address
