@@ -5,12 +5,16 @@
 
 use crate::node::{Message, NodeSerializeError, NodeId};
 use crate::radio::*;
+use embedded_hal::digital::OutputPin;
+use embedded_hal::spi::SpiDevice;
 use embedded_hal::{delay::DelayNs, digital::InputPin};
 use errors::Discriminant;
+use nrf24::NRF24L01;
 
 use super::addr_to_nrf24_hq_pipe;
 
-
+// No debug for this, to prevent accidentally unwrapping it.
+// #[derive(Debug)]
 #[repr(u8)]
 pub enum Error<E> {
 	RadioError(E) = 0,
@@ -43,17 +47,42 @@ impl<E: Discriminant> Discriminant for Error<E> {
 }
 
 type SendResult<E> = Result<bool, Error<E>>;
-pub fn send_looking_for_network<E, R: Radio<E>, D: DelayNs>(
-	radio: &mut R,
-	node_id: NodeId,
+// pub fn send_looking_for_network<E, R: Radio<E>, D: DelayNs>(
+// 	radio: &mut R,
+// 	node_id: NodeId,
+// 	node_addr: u16,
+// 	delay: &mut D,
+// ) -> SendResult<E> {
+// 	// Send looking for network
+// 	send_message(radio, Message::SearchingNetwork(node_id), node_addr, delay)
+// }
+
+/// For NRF24 we need to enable first pipe and disable it afterwards
+/// 
+/// This is a very specific method just for nodes with nrf24.
+/// We enable first pipe cause its needed for an ACK from HQ.
+/// But disable it afterwards because we don't want to receive 
+/// messages from other nodes that are headed to HQ.
+pub fn send_message_nrf24<SPI : SpiDevice,CE:OutputPin, D: DelayNs>(
+	radio: &mut NRF24L01<SPI, CE>,
+	message: Message,
 	node_addr: u16,
 	delay: &mut D,
-) -> SendResult<E> {
-	// Send looking for network
-	send_message(radio, Message::SearchingNetwork(node_id), node_addr, delay)
+) -> SendResult<nrf24::Error<SPI::Error, CE::Error>> {
+	// Enable first pipe
+	radio.set_rx_enabled_pipes(&[true,true,false,false,false,false])?;
+	let result = send_message_(radio, message, node_addr, delay)?;
+	// Disable first pipe
+	radio.set_rx_enabled_pipes(&[false,true,false,false,false,false])?;
+	Ok(result)
 }
-/// If Some transmission
-pub fn send_message<E, R: Radio<E>, D: DelayNs>(
+
+
+/// Send a message
+/// 
+/// Changed the name to underscore to prevent nrf nodes from building
+/// until they've been changed to the right one up there ^
+pub fn send_message_<E, R: Radio<E>, D: DelayNs>(
 	radio: &mut R,
 	message: Message,
 	node_addr: u16,
@@ -75,6 +104,7 @@ pub fn send_message<E, R: Radio<E>, D: DelayNs>(
 		delay,
 	)
 }
+
 
 pub fn send_payload<E, R: Radio<E>, D: DelayNs>(
 	radio: &mut R,
