@@ -108,6 +108,12 @@ impl<SPI: SpiDevice<u8>, CE: OutputPin> Radio<nrf24::Error<SPI::Error, CE::Error
 	fn to_idle(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
 		self.idle()
 	}
+	fn flush_rx(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+			self.flush_rx()
+	}
+	fn flush_tx(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+			self.flush_tx()
+	}
 }
 
 #[cfg(feature = "cc1101")]
@@ -173,10 +179,10 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	fn to_idle(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.to_idle()
 	}
-	// fn flush_rx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
-	// 	self.flush_rx()
-	// }
-	// fn flush_tx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
-	// 	self.flush_tx()
-	// }
+	fn flush_rx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
+		self.flush_rx()
+	}
+	fn flush_tx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
+		self.flush_tx()
+	}
 }

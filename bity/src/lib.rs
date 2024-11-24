@@ -40,7 +40,7 @@ impl<'a> BitWriter<'a> {
 
 	pub fn write_bits(&mut self, value: u32, bits: u8) -> Result<(), Error> {
 		#[cfg(feature = "std")]
-		{
+		if bits < 32 {
 			let max = 2u32.pow(bits as u32);
 			if value >= max {
 				panic!("value {value} > what {bits} bit/s can hold");
