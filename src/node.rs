@@ -66,7 +66,7 @@ pub enum Board {
 }
 
 impl Board {
-	fn from_code(code: u8) -> NodeBitsResult<Self> {
+	fn code(code: u8) -> NodeBitsResult<Self> {
 		match code {
 			0 => Ok(Board::SamnV8),
 			1 => Ok(Board::SamnV9),
@@ -89,8 +89,7 @@ pub struct NodeInfo {
 impl NodeInfo {
 	fn serialize_to_bits(&self, writer: &mut BitWriter) -> NodeBitsResult<()> {
 		// Serialize board (2 bits, assuming up to 4 variants)
-		let board_code = self.board_code();
-		writer.write_bits(board_code as u32, 2)?;
+		writer.write_bits(self.code() as u32, 2)?;
 
 		// Serialize heartbeat_interval (16 bits)
 		writer.write_bits(self.heartbeat_interval as u32, 16)?;
@@ -100,8 +99,8 @@ impl NodeInfo {
 
 	fn deserialize_from_bits(reader: &mut BitReader) -> NodeBitsResult<Self> {
 		// Read board code (2 bits)
-		let board_code = reader.read_bits(2)? as u8;
-		let board = Board::from_code(board_code)?;
+		let code = reader.read_bits(2)? as u8;
+		let board = Board::code(code)?;
 
 		// Read heartbeat_interval (16 bits)
 		let heartbeat_interval = reader.read_bits(16)? as u16;
@@ -112,7 +111,7 @@ impl NodeInfo {
 		})
 	}
 
-	fn board_code(&self) -> u8 {
+	fn code(&self) -> u8 {
 		match self.board {
 			Board::SamnV8 => 0,
 			Board::SamnV9 => 1,
@@ -138,8 +137,8 @@ pub enum Sensor {
 impl Sensor {
 	fn serialize_to_bits(&self, writer: &mut BitWriter) -> NodeBitsResult<()> {
 		// Write sensor code (4 bits)
-		let sensor_code = self.sensor_code();
-		writer.write_bits(sensor_code as u32, 4)?;
+		let code = self.code();
+		writer.write_bits(code as u32, 4)?;
 
 		match self {
 			Sensor::Battery(level) => {
@@ -162,9 +161,9 @@ impl Sensor {
 
 	fn deserialize_from_bits(reader: &mut BitReader) -> NodeBitsResult<Self> {
 		// Read sensor code (4 bits)
-		let sensor_code = reader.read_bits(4)? as u8;
+		let code = reader.read_bits(4)? as u8;
 
-		match sensor_code {
+		match code {
 			0 => {
 				// Battery
 				let level = reader.read_bits(8)? as u8;
@@ -185,7 +184,7 @@ impl Sensor {
 		}
 	}
 
-	fn sensor_code(&self) -> u8 {
+	fn code(&self) -> u8 {
 		match self {
 			Sensor::Battery(_) => 0,
 			Sensor::TempHum(_) => 1,
@@ -207,8 +206,8 @@ pub enum Actuator {
 impl Actuator {
 	fn serialize_to_bits(&self, writer: &mut BitWriter) -> NodeBitsResult<()> {
 		// Write actuator code (4 bits)
-		let actuator_code = self.actuator_code();
-		writer.write_bits(actuator_code as u32, 4)?;
+		let code = self.code();
+		writer.write_bits(code as u32, 4)?;
 
 		match self {
 			Actuator::Light(on) => {
@@ -221,9 +220,9 @@ impl Actuator {
 
 	fn deserialize_from_bits(reader: &mut BitReader) -> NodeBitsResult<Self> {
 		// Read actuator code (4 bits)
-		let actuator_code = reader.read_bits(4)? as u8;
+		let code = reader.read_bits(4)? as u8;
 
-		match actuator_code {
+		match code {
 			0 => {
 				// Light
 				let on = reader.read_bits(1)? == 1;
@@ -233,7 +232,7 @@ impl Actuator {
 		}
 	}
 
-	fn actuator_code(&self) -> u8 {
+	fn code(&self) -> u8 {
 		match self {
 			Actuator::Light(_) => 0,
 			// Add other variants and codes here, up to 16
@@ -346,13 +345,14 @@ pub enum Command {
 	SetLimb(Limb),
 	/// Toggle a limb
 	ToggleLimb(LimbId),
+	/// Set a limb
+	SetLimbType(LimbType),
 }
 
 impl Command {
 	fn serialize_to_bits(&self, writer: &mut BitWriter) -> NodeBitsResult<()> {
 		// Write command code (4 bits)
-		let command_code = self.command_code();
-		writer.write_bits(command_code as u32, 4)?;
+		writer.write_bits(self.code() as u32, 4)?;
 
 		match self {
 			Command::Info => Ok(()),
@@ -366,14 +366,18 @@ impl Command {
 				writer.write_bits(*limb_id as u32, 4)?;
 				Ok(())
 			}
+			Command::SetLimbType(limb_type) => {
+				limb_type.serialize_to_bits(writer)?;
+				Ok(())
+			}
 		}
 	}
 
 	fn deserialize_from_bits(reader: &mut BitReader) -> NodeBitsResult<Self> {
 		// Read command code (4 bits)
-		let command_code = reader.read_bits(4)? as u8;
+		let code = reader.read_bits(4)? as u8;
 
-		match command_code {
+		match code {
 			0 => Ok(Command::Info),
 			1 => Ok(Command::Limbs),
 			2 => {
@@ -386,16 +390,22 @@ impl Command {
 				let limb_id = reader.read_bits(4)? as u8;
 				Ok(Command::ToggleLimb(limb_id))
 			}
+			4 => {
+				// SetLimb
+				let limb_type = LimbType::deserialize_from_bits(reader)?;
+				Ok(Command::SetLimbType(limb_type))
+			}
 			_ => Err(NodeSerializeError::InvalidCommandCode),
 		}
 	}
 
-	fn command_code(&self) -> u8 {
+	fn code(&self) -> u8 {
 		match self {
 			Command::Info => 0,
 			Command::Limbs => 1,
 			Command::SetLimb(_) => 2,
 			Command::ToggleLimb(_) => 3,
+			Command::SetLimbType(_) => 4,
 			// Add other variants and codes here, up to 16
 		}
 	}
@@ -418,8 +428,8 @@ pub enum Response {
 impl Response {
 	fn serialize_to_bits(&self, writer: &mut BitWriter) -> NodeBitsResult<()> {
 		// Write response code (up to 4 bits)
-		let response_code = self.response_code();
-		writer.write_bits(response_code as u32, 4)?;
+		let code = self.code();
+		writer.write_bits(code as u32, 4)?;
 
 		match self {
 			Response::Ok => Ok(()),
@@ -455,9 +465,9 @@ impl Response {
 
 	fn deserialize_from_bits(reader: &mut BitReader) -> NodeBitsResult<Self> {
 		// Read response code (up to 4 bits)
-		let response_code = reader.read_bits(4)? as u8;
+		let code = reader.read_bits(4)? as u8;
 
-		match response_code {
+		match code {
 			0 => Ok(Response::Ok),
 			1 => {
 				// Info
@@ -492,7 +502,7 @@ impl Response {
 		}
 	}
 
-	fn response_code(&self) -> u8 {
+	fn code(&self) -> u8 {
 		match self {
 			Response::Ok => 0,
 			Response::Info(_) => 1,
@@ -609,8 +619,8 @@ impl Message {
 		writer.write_bits(MESSAGE_VERSION as u32, 2)?;
 
 		// Write the message code (4 bits)
-		let message_code = self.message_code();
-		writer.write_bits(message_code as u32, 4)?;
+		let code = self.code();
+		writer.write_bits(code as u32, 4)?;
 
 		// Serialize based on variant
 		match self {
@@ -656,9 +666,9 @@ impl Message {
 		}
 
 		// Read the message code (4 bits)
-		let message_code = reader.read_bits(4)? as u8;
+		let code = reader.read_bits(4)? as u8;
 
-		let message = match message_code {
+		let message = match code {
 			0 => {
 				// Message::Message
 				let data = MessageData::deserialize_from_bits(&mut reader)?;
@@ -698,7 +708,7 @@ impl Message {
 		Ok((message, reader.finalize()))
 	}
 
-	fn message_code(&self) -> u8 {
+	fn code(&self) -> u8 {
 		match self {
 			Message::Message(_) => 0,
 			Message::RelayMessage(_, _) => 1,
