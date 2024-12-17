@@ -5,7 +5,7 @@ use sonnerie::{FromRecord, ToRecord};
 
 impl ToRecord for &Limb {
 	fn store(&self, buf: &mut std::vec::Vec<u8>) {
-		buf.write(&postcard::to_vec::<_, 32>(self).unwrap()).unwrap();
+		buf.write_all(&postcard::to_vec::<_, 32>(self).unwrap()).unwrap();
 	}
 	fn format_char(&self) -> u8 {
 		b'L'
@@ -19,7 +19,7 @@ impl ToRecord for &Limb {
 }
 impl ToRecord for &NodeInfo {
 	fn store(&self, buf: &mut std::vec::Vec<u8>) {
-		buf.write(&postcard::to_vec::<_, 32>(self).unwrap()).unwrap();
+		buf.write_all(&postcard::to_vec::<_, 32>(self).unwrap()).unwrap();
 	}
 	fn format_char(&self) -> u8 {
 		b'N'
@@ -32,7 +32,7 @@ impl ToRecord for &NodeInfo {
 	}
 }
 
-impl<'a> FromRecord<'a> for Limb {
+impl FromRecord<'_> for Limb {
 	fn get(fmt_char: u8, bytes: &[u8]) -> std::io::Result<Self> {
 		if fmt_char != b'L' {
 			return Err(std::io::Error::new(
@@ -44,7 +44,7 @@ impl<'a> FromRecord<'a> for Limb {
 	}
 }
 
-impl<'a> FromRecord<'a> for NodeInfo {
+impl FromRecord<'_> for NodeInfo {
 	fn get(fmt_char: u8, bytes: &[u8]) -> std::io::Result<Self> {
 		if fmt_char != b'N' {
 			return Err(std::io::Error::new(

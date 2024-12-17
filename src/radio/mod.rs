@@ -129,6 +129,9 @@ impl Payload {
 	pub fn len(&self) -> usize {
 		(self.0[1] & !(1 << 7)).into()
 	}
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
 	/// Get total length of packet (header + data)
 	pub fn len_total(&self) -> usize {
 		self.len() + self.header_length()
@@ -138,7 +141,7 @@ impl Payload {
 		self.0[0]
 	}
 	pub fn len_is_valid(&self) -> bool {
-		self.len() != 0 && self.len() <= self.0.len() - self.header_length()
+		!self.is_empty() && self.len() <= self.0.len() - self.header_length()
 	}
 	/// Get the data section of the payload
 	pub fn data(&self) -> &[u8] {

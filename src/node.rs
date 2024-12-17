@@ -455,7 +455,7 @@ impl Response {
 			}
 			Response::Heartbeat(timestamp) => {
 				// Write timestamp (32 bits)
-				writer.write_bits(*timestamp as u32, 32)?;
+				writer.write_bits(*timestamp , 32)?;
 				Ok(())
 			}
 			Response::ErrLimbNotFound => Ok(()),
@@ -493,7 +493,7 @@ impl Response {
 			}
 			3 => {
 				// Heartbeat
-				let timestamp = reader.read_bits(32)? as u32;
+				let timestamp = reader.read_bits(32)?;
 				Ok(Response::Heartbeat(timestamp))
 			}
 			200 => Ok(Response::ErrLimbNotFound),
