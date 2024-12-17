@@ -3,7 +3,7 @@
  * 
  */
 
-use crate::node::{Message, NodeSerializeError, NodeId};
+use crate::node::{Message, NodeSerializeError};
 use crate::radio::*;
 use embedded_hal::digital::OutputPin;
 use embedded_hal::spi::SpiDevice;
