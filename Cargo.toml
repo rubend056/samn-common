@@ -21,12 +21,14 @@ std = [
   "serde",
   "nrf24",
   "cc1101",
+  "tokio",
 
   "nrf24/std",
   "errors/std",
   "bity/std",
   "cc1101/std",
 ]
+tokio = ["cc1101/tokio"]
 serde = ["dep:serde"]
 nrf24 = ["dep:nrf24"]
 cc1101 = ["dep:cc1101"]

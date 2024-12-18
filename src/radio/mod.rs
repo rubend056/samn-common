@@ -49,6 +49,12 @@ pub trait Radio<E> {
 
 	fn flush_rx(&mut self) -> Result<(), E>;
 	fn flush_tx(&mut self) -> Result<(), E>;
+	#[cfg(feature = "tokio")]
+	fn to_tx_async(&mut self) -> impl std::future::Future<Output = Result<(), E>>;
+	#[cfg(feature = "tokio")]
+	fn to_rx_async(&mut self) -> impl std::future::Future<Output = Result<(), E>>;
+	#[cfg(feature = "tokio")]
+	fn to_idle_async(&mut self) -> impl std::future::Future<Output = Result<(), E>>;
 }
 
 /// Payload is (pipe, len, addr1, addr0, ...data)

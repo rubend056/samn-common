@@ -114,6 +114,20 @@ impl<SPI: SpiDevice<u8>, CE: OutputPin> Radio<nrf24::Error<SPI::Error, CE::Error
 	fn flush_tx(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
 			self.flush_tx()
 	}
+
+	// Async function on nrf24 go straight to normal functions since they're non-blocking.
+	#[cfg(feature = "tokio")]
+	async fn to_rx_async(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+		self.to_rx()
+	}
+	#[cfg(feature = "tokio")]
+	async fn to_idle_async(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+		self.to_idle()
+	}
+	#[cfg(feature = "tokio")]
+	async fn to_tx_async(&mut self) -> Result<(), nrf24::Error<SPI::Error, CE::Error>> {
+		self.to_tx()
+	}
 }
 
 #[cfg(feature = "cc1101")]
@@ -184,5 +198,19 @@ impl<SPI: SpiDevice<u8, Error = SpiE>, SpiE> Radio<cc1101::Error<SpiE>> for Cc11
 	}
 	fn flush_tx(&mut self) -> Result<(), cc1101::Error<SpiE>> {
 		self.flush_tx()
+	}
+
+	// Implement async functions with underlying asyncs
+	#[cfg(feature = "tokio")]
+	async fn to_tx_async(&mut self) -> Result<(), cc1101::Error<SpiE>> {
+		self.to_tx_async().await
+	}
+	#[cfg(feature = "tokio")]
+	async fn to_rx_async(&mut self) -> Result<(), cc1101::Error<SpiE>> {
+		self.to_rx_async().await
+	}
+	#[cfg(feature = "tokio")]
+	async fn to_idle_async(&mut self) -> Result<(), cc1101::Error<SpiE>> {
+		self.to_idle_async().await
 	}
 }
