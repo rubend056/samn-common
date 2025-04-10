@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod node;
+#[cfg(any(feature = "cc1101",feature = "nrf24"))]
 pub mod radio;
 #[cfg(feature = "sonnerie")]
 pub mod sonnerie;
